@@ -40,8 +40,9 @@
   #stockBadge { position:absolute; top:-6px; right:-6px; background:#2d2d2d; color:#fff; font-size:.7rem; font-weight:800; border-radius:999px; padding:3px 7px; border:2px solid #fff; }
 
   /* ---- ウェイスト(山札からめくった置き場): 横に重ねて開く。手前(最新)が左、
-     奥(先にめくった方)は右にずれて裏向きのスリバーだけ覗く ---- */
-  #wasteWrap { position:relative; width:92px; height:118px; }
+     奥にめくった順にずれて、裏向きのスリバーが覗く。何枚か連続でめくるほど
+     奥のカードも1枚ずつ見えるように(最大4枚分まで) ---- */
+  #wasteWrap { position:relative; width:130px; height:118px; }
   #wasteWrap .card { position:absolute; width:76px; right:auto; top:0; }
 
   /* ---- 盤面: 上段4=カテゴリー置き場、下段4=ランダムに積まれたタブロー ---- */
@@ -75,6 +76,16 @@
   #toast { position:fixed; left:50%; top:16%; transform:translate(-50%,-50%) scale(.9); background:#2d2d2d; color:#fff; padding:10px 20px; border-radius:999px; font-size:.85rem; font-weight:700; z-index:90; opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; }
   #toast.show { opacity:1; transform:translate(-50%,-50%) scale(1); }
 
+  #meaningOverlay {
+    position:fixed; left:12px; right:12px; bottom:calc(84px + env(safe-area-inset-bottom,0px));
+    background:#fffdf5; border:2px solid #f2c14e; border-radius:16px; padding:12px 16px;
+    box-shadow:0 8px 20px rgba(0,0,0,.3); z-index:92; pointer-events:none;
+    opacity:0; transform:translateY(8px); transition:opacity .15s, transform .15s;
+  }
+  #meaningOverlay.show { opacity:1; transform:translateY(0); }
+  #meaningWord { font-weight:900; font-size:1.05rem; color:#3a2a06; margin-bottom:4px; }
+  #meaningText { font-size:.84rem; color:#5a4a28; line-height:1.5; }
+
   #bottomBar { flex:0 0 auto; display:flex; justify-content:center; gap:26px; padding:10px 0 calc(14px + env(safe-area-inset-bottom,0px)); }
   .toolbtn { position:relative; width:54px; height:54px; border-radius:16px; border:0; display:flex; align-items:center; justify-content:center; font-size:1.4rem; box-shadow:0 3px 8px rgba(0,0,0,.25); }
   .toolbtn:active { transform:scale(.94); }
@@ -92,6 +103,7 @@
   <div id="titleScreen" class="screen">
     <h1>なかまあつめソリティア</h1>
     <p>上の4つの王冠マークは、まだ見つかってない仲間の置き場。下の山を掘って「カテゴリーカード」を見つけたら王冠の場所にドラッグ。その仲間に合う単語カードを、できた山にドラッグして集めよう。</p>
+    <p>カードを長押しすると、その言葉の意味がヒントで出るよ。</p>
     <button class="bigbtn" id="startBtn">はじめる</button>
   </div>
 
@@ -128,35 +140,163 @@
 
 </div>
 <div id="toast"></div>
+<div id="meaningOverlay" hidden>
+  <div id="meaningWord"></div>
+  <div id="meaningText"></div>
+</div>
 
 <script>
 (() => {
   const $ = (id) => document.getElementById(id);
 
-  const CATEGORY_DEFS = [
-    { label: 'どうぶつ', words: ['イヌ','ネコ','ゾウ','キリン'] },
-    { label: 'くだもの', words: ['リンゴ','バナナ','イチゴ','ブドウ'] },
-    { label: 'スポーツ', words: ['サッカー','やきゅう','すいえい','テニス'] },
-    { label: 'てんき',   words: ['はれ','あめ','くもり','ゆき'] },
-    { label: 'のりもの', words: ['でんしゃ','ひこうき','ふね','バス'] },
-    { label: 'いろ',     words: ['あか','あお','きいろ','みどり'] },
+  // ---- テーマ(カテゴリー)のたね。word配列は [単語, 絵文字またはnull, 意味の説明]。
+  // 絵文字がnullの単語が1つでもあるテーマは、絵文字モードでは出さない(=常に文字)。
+  // ゲーム開始ごとに、この大きなプールから数テーマだけ抽選してシャッフルする。
+  const THEMES = [
+    { label:'どうぶつ', words:[
+      ['イヌ','🐶','人によくなつき、昔からペットとして飼われている動物'],
+      ['ネコ','🐱','つめをしまえる、夜でも目がよく見える動物'],
+      ['ゾウ','🐘','鼻がとても長く、陸上でいちばん大きな動物'],
+      ['キリン','🦒','首がとても長く、高い木の葉を食べる動物'],
+      ['パンダ','🐼','ほとんど笹だけを食べてくらす、黒と白の動物'],
+      ['ライオン','🦁','「森の王」と呼ばれる、群れでくらすネコ科の動物'],
+    ]},
+    { label:'くだもの', words:[
+      ['リンゴ','🍎','秋によくとれる、赤くて丸い実'],
+      ['バナナ','🍌','皮をむいて食べる、黄色くて細長い実'],
+      ['イチゴ','🍓','表面に小さなつぶつぶがある赤い実'],
+      ['ブドウ','🍇','小さな実がふさになってなる果物'],
+      ['メロン','🍈','あまい香りが強い、網目模様の果物'],
+    ]},
+    { label:'スポーツ', words:[
+      ['サッカー','⚽','ボールを足で扱い、ゴールに入れる競技'],
+      ['やきゅう','⚾','バットでボールを打ち、塁をまわる競技'],
+      ['すいえい','🏊','水の中を泳いでスピードを競う競技'],
+      ['テニス','🎾','ラケットでボールを打ち合う競技'],
+      ['じゅうどう','🥋','相手を投げたり抑えたりして競う武道'],
+    ]},
+    { label:'てんき', words:[
+      ['はれ','☀️','雲が少なく、日がよく差している天気'],
+      ['あめ','☔','空から水のつぶが落ちてくる天気'],
+      ['くもり','☁️','空が雲でおおわれている天気'],
+      ['ゆき','❄️','空から白い氷のつぶが降る天気'],
+      ['かみなり','⚡','空が光り、大きな音が鳴る現象'],
+    ]},
+    { label:'のりもの', words:[
+      ['でんしゃ','🚃','レールの上を走る、大勢が乗れる乗り物'],
+      ['ひこうき','✈️','空を飛んで人や荷物を運ぶ乗り物'],
+      ['ふね','🚢','水の上を進む乗り物'],
+      ['バス','🚌','決まった道を走る、大勢が乗れる自動車'],
+      ['ロケット','🚀','宇宙に向かって飛んでいく乗り物'],
+    ]},
+    { label:'いろ', words:[
+      ['あか','🔴','血や炎のような色'],
+      ['あお','🔵','晴れた空や海のような色'],
+      ['きいろ','🟡','レモンやひまわりのような色'],
+      ['みどり','🟢','草や葉っぱのような色'],
+      ['むらさき','🟣','なすやぶどうのような色'],
+    ]},
+    { label:'星座', words:[
+      ['おひつじ座','♈','3月21日ごろから始まる星座'],
+      ['おうし座','♉','4月20日ごろから始まる星座'],
+      ['ふたご座','♊','5月21日ごろから始まる星座'],
+      ['かに座','♋','6月22日ごろから始まる星座'],
+      ['しし座','♌','7月23日ごろから始まる星座'],
+      ['さそり座','♏','10月24日ごろから始まる星座'],
+    ]},
+    { label:'こんちゅう', words:[
+      ['チョウ','🦋','花から花へ飛びまわる、はねが美しい昆虫'],
+      ['テントウムシ','🐞','丸い体に水玉模様がある小さな昆虫'],
+      ['アリ','🐜','集団で力を合わせて働く小さな昆虫'],
+      ['ミツバチ','🐝','花のみつを集め、はちみつをつくる昆虫'],
+    ]},
+    { label:'うみのいきもの', words:[
+      ['サカナ','🐟','水の中をえらで呼吸して泳ぐ生き物'],
+      ['タコ','🐙','8本の足を持つ、やわらかい海の生き物'],
+      ['カニ','🦀','横に歩く、はさみを持った海の生き物'],
+      ['クジラ','🐳','海にすむ、とても大きなほ乳類'],
+      ['イルカ','🐬','頭がよく、仲間と鳴き声で会話する海の生き物'],
+    ]},
+    { label:'たべもの', words:[
+      ['すし','🍣','酢飯の上に魚などをのせた日本の料理'],
+      ['ラーメン','🍜','スープと麺を組み合わせた料理'],
+      ['カレー','🍛','スパイスで煮込んだ具をごはんにかける料理'],
+      ['ピザ','🍕','チーズや具をのせて焼いたイタリアの料理'],
+      ['おにぎり','🍙','ごはんを三角などの形にまとめた食べ物'],
+    ]},
+    { label:'きせつ', words:[
+      ['はる','🌸','花がさき、暖かくなる季節'],
+      ['なつ','🏖️','一年でいちばん暑くなる季節'],
+      ['あき','🍁','葉が色づき、涼しくなる季節'],
+      ['ふゆ','⛄','一年でいちばん寒くなる季節'],
+    ]},
+    { label:'うちゅう', words:[
+      ['つき','🌙','地球のまわりを回る、夜空に見える天体'],
+      ['ほし','⭐','夜空に光って見える、遠くの天体'],
+      ['ちきゅう','🌍','私たちが住んでいる星'],
+      ['わくせい','🪐','太陽のまわりを回る星'],
+      ['たいよう','🌞','地球に光と熱を送る、太陽系の中心の星'],
+    ]},
+    { label:'やさい', words:[
+      ['ニンジン','🥕','オレンジ色で細長い、根を食べる野菜'],
+      ['トマト','🍅','赤くて丸い、水分の多い野菜'],
+      ['キャベツ','🥬','葉が何重にも重なった丸い野菜'],
+      ['ジャガイモ','🥔','土の中にできる、でんぷんの多い野菜'],
+      ['トウモロコシ','🌽','つぶがたくさんついた、甘みのある野菜'],
+    ]},
+    { label:'おかし', words:[
+      ['チョコレート','🍫','カカオから作られる甘いお菓子'],
+      ['アイス','🍦','冷やして固めた甘いお菓子'],
+      ['ドーナツ','🍩','輪の形をした、油で揚げたお菓子'],
+      ['クッキー','🍪','さくさくした焼き菓子'],
+      ['ケーキ','🎂','お祝いの時によく食べられる甘い焼き菓子'],
+    ]},
+    { label:'からだ', words:[
+      ['め','👁️','物を見るためのからだの部分'],
+      ['て','✋','物をつかんだりするからだの部分'],
+      ['あし','🦶','歩いたり走ったりするからだの部分'],
+      ['みみ','👂','音を聞くためのからだの部分'],
+      ['はな','👃','においを感じるためのからだの部分'],
+    ]},
+    { label:'がっき', words:[
+      ['ピアノ','🎹','鍵盤を押して音を出す楽器'],
+      ['ギター','🎸','弦をはじいて音を出す楽器'],
+      ['バイオリン','🎻','弓で弦をこすって音を出す楽器'],
+      ['たいこ','🥁','皮を張った面をたたいて音を出す楽器'],
+    ]},
+    { label:'四字熟語', words:[
+      ['一石二鳥',null,'一つのことをして二つの得をすること'],
+      ['自画自賛',null,'自分で自分のことをほめること'],
+      ['温故知新',null,'昔のことを調べ、そこから新しい知識を得ること'],
+      ['臨機応変',null,'その時その場に応じて、ふさわしく対応すること'],
+    ]},
+    { label:'ことわざ', words:[
+      ['猿も木から落ちる',null,'どんなに得意なことでも、失敗することがあるという意味'],
+      ['石の上にも三年',null,'つらくてもがんばり続ければ、いつか成果が出るという意味'],
+      ['井の中の蛙',null,'狭い世界のことしか知らず、広い世界を知らないことのたとえ'],
+      ['七転び八起き',null,'何度失敗してもあきらめずに立ち直ることのたとえ'],
+    ]},
+    { label:'都道府県', words:[
+      ['ほっかいどう',null,'日本列島の北にある、面積が一番大きい都道府県'],
+      ['とうきょう',null,'日本の首都がある都道府県'],
+      ['おおさか',null,'関西地方にある、商業で有名な都道府県'],
+      ['ふくおか',null,'九州地方にある、人口の多い都道府県'],
+      ['おきなわ',null,'日本のいちばん南にある、あたたかい島の都道府県'],
+    ]},
+    { label:'きょうりゅう', words:[
+      ['ティラノサウルス',null,'するどい歯を持つ、肉食の大きな恐竜'],
+      ['トリケラトプス',null,'頭に3本の角を持つ、草食の恐竜'],
+      ['ブラキオサウルス',null,'首がとても長い、草食の大きな恐竜'],
+      ['ステゴサウルス',null,'背中にとげのような板が並んだ恐竜'],
+    ]},
   ];
-  // 一部の単語カードは、文字ではなく絵文字で出てくることがある。絵は絵同士、
-  // 文字は文字同士でしか束ねられない(カテゴリーが同じでも見た目が違うと合体しない)。
-  const EMOJI_MAP = {
-    'イヌ':'🐶','ネコ':'🐱','ゾウ':'🐘','キリン':'🦒',
-    'リンゴ':'🍎','バナナ':'🍌','イチゴ':'🍓','ブドウ':'🍇',
-    'サッカー':'⚽','やきゅう':'⚾','すいえい':'🏊','テニス':'🎾',
-    'はれ':'☀️','あめ':'☔','くもり':'☁️','ゆき':'❄️',
-    'でんしゃ':'🚃','ひこうき':'✈️','ふね':'🚢','バス':'🚌',
-    'あか':'🔴','あお':'🔵','きいろ':'🟡','みどり':'🟢',
-  };
+
   const TOP_LANES = 4, BOTTOM_LANES = 4, LANES = TOP_LANES + BOTTOM_LANES;
-  const STOCK_RESERVE = 10; // 初期配置せず控えに残しておく枚数
 
   // lane: { isTableau, stack:[{type,catIndex,word?,label?}, ...](index0=手前/操作可能), pile:null|{catIndex,collected,target,label,faceWord} }
   let lanes = [];
   let stock = [];
+  let activeThemes = []; // 今回のゲームで抽選されたテーマ(catIndexの並びに対応)
   let moves = 0, totalWordCards = 0, placedWordCards = 0, coins = 0;
   let hints = 3, undos = 3, shuffles = 3;
   let history = [];
@@ -169,14 +309,31 @@
     return arr;
   }
 
-  function buildDeck() {
+  // ゲーム開始ごとに大きなテーマプールから数個だけ抽選する(クリアしてもう一度を
+  // 選ぶと、別のランダムな組み合わせが選ばれる)。絵文字が揃っているテーマだけ、
+  // 半々の確率で「絵文字モード」になる(なければ常に文字モード)。
+  // 同じテーマの中では絵文字と文字が混ざらないので、絵と文字のカードが
+  // 同じ仲間として扱われることもない。
+  function pickThemesForGame() {
+    const pool = shuffle([...THEMES]);
+    const count = 5 + Math.floor(Math.random() * 2); // 5〜6テーマ
+    return pool.slice(0, count).map((theme) => {
+      const allowEmoji = theme.words.every((w) => w[1]);
+      const mode = (allowEmoji && Math.random() < 0.5) ? 'emoji' : 'text';
+      return { label: theme.label, words: theme.words, mode };
+    });
+  }
+
+  function buildDeck(themes) {
     const deck = [];
-    CATEGORY_DEFS.forEach((cat, ci) => {
-      deck.push({ type: 'header', catIndex: ci, label: cat.label });
-      cat.words.forEach((w) => {
-        const emoji = EMOJI_MAP[w] || null;
-        const cardType = (emoji && Math.random() < 0.5) ? 'emoji' : 'text';
-        deck.push({ type: 'word', catIndex: ci, word: w, emoji, cardType });
+    themes.forEach((theme, ci) => {
+      deck.push({ type: 'header', catIndex: ci, label: theme.label });
+      theme.words.forEach(([word, emoji, meaning]) => {
+        deck.push({
+          type: 'word', catIndex: ci, word,
+          emoji: theme.mode === 'emoji' ? emoji : null,
+          cardType: theme.mode, meaning,
+        });
       });
     });
     return shuffle(deck);
@@ -185,7 +342,8 @@
   let waste = []; // 山札からめくったカード(末尾=手前/操作可能、他は埋もれて不可)
 
   function setupGame() {
-    const deck = buildDeck();
+    activeThemes = pickThemesForGame();
+    const deck = buildDeck(activeThemes);
     totalWordCards = deck.filter((c) => c.type === 'word').length;
     placedWordCards = 0;
     moves = 0; coins = 0;
@@ -196,7 +354,8 @@
     lanes = [];
     for (let i = 0; i < TOP_LANES; i++) lanes.push({ isTableau: false, stack: [], pile: null });
 
-    const dealCount = deck.length - STOCK_RESERVE;
+    const reserve = Math.max(6, Math.min(14, Math.round(deck.length * 0.35)));
+    const dealCount = deck.length - reserve;
     const tableauDeal = deck.slice(0, dealCount);
     stock = deck.slice(dealCount);
 
@@ -241,6 +400,22 @@
     showToast._t = setTimeout(() => t.classList.remove('show'), 700);
   }
 
+  // ---- 長押しの意味ヒント ----
+  let meaningHideTimer;
+  function showMeaning(info) {
+    if (!info || !info.meaning) return;
+    clearTimeout(meaningHideTimer);
+    $('meaningWord').textContent = info.title;
+    $('meaningText').textContent = info.meaning;
+    $('meaningOverlay').hidden = false;
+    $('meaningOverlay').classList.add('show');
+  }
+  function hideMeaning() {
+    $('meaningOverlay').classList.remove('show');
+    clearTimeout(meaningHideTimer);
+    meaningHideTimer = setTimeout(() => { $('meaningOverlay').hidden = true; }, 200);
+  }
+
   // ---- 描画 ----
   function renderBoard() {
     const rowTop = $('rowTop'); const rowBottom = $('rowBottom');
@@ -271,8 +446,8 @@
   function cardFace(c) { return c.type === 'word' && c.cardType === 'emoji' ? c.emoji : (c.type === 'word' ? c.word : null); }
 
   // 手前は「山(カテゴリー確定済み)」か「束ねた単語カードの先頭」のどちらか。
-  // 奥に控えてるカードのうち、手前と同じ束の一部(同カテゴリ・同じ絵/文字タイプが
-  // 連続してる分)は表向きで中身が見えるようにし、それより奥は本当に未知なので裏向き。
+  // 奥に控えてるカードのうち、手前と同じ束の一部(同カテゴリー・同じテーマの
+  // モードが連続してる分)は表向きで中身が見えるようにし、それより奥は本当に未知なので裏向き。
   function renderLaneStack(li) {
     const lane = lanes[li];
     const wrap = $('stack-' + li);
@@ -313,10 +488,12 @@
     const front = document.createElement('div');
     front.style.top = frontTop + 'px';
     front.style.zIndex = '100';
+    let meaningInfo = null;
     if (hasPile) {
       front.className = 'card pile active';
       front.innerHTML = `<div class="crown">👑</div><div>${escapeHtml(lane.pile.faceWord)}</div><div class="frac">${lane.pile.collected}/${lane.pile.target}</div>`;
       if (lane.pile.locked) front.innerHTML += `<div class="htag">🔒 完成ゾーンへ</div>`;
+      meaningInfo = { title: lane.pile.faceWord, meaning: lane.pile.faceMeaning };
     } else {
       const c = lane.stack[0];
       const isHeader = c.type === 'header';
@@ -333,19 +510,21 @@
           badge.textContent = '×' + runLen;
           front.appendChild(badge);
         }
+        meaningInfo = { title: cardFace(c), meaning: c.meaning };
       }
     }
-    wireDrag(front, li);
+    wireDrag(front, li, meaningInfo);
     wrap.appendChild(front);
   }
 
   const WASTE_PEEK_H_OFFSET = 14; // ウェイストは縦ではなく横にずらして重ねる(元レイアウト通り)
+  const WASTE_MAX_PEEK = 4; // 連続でめくった分だけ奥のスリバーも増えて見える
   function renderWaste() {
     const wrap = $('wasteWrap');
     if (!wrap) return;
     wrap.innerHTML = '';
     if (!waste.length) return;
-    const depth = Math.min(waste.length, 2); // 手前+1枚分の裏向きスリバーだけ見せる
+    const depth = Math.min(waste.length, WASTE_MAX_PEEK);
     // 奥(先にめくった方)を右にずらして裏向きで置き、手前(最新)を左に重ねて表向きで出す。
     for (let back = depth - 1; back >= 0; back--) {
       const idx = waste.length - 1 - back; // 0 = 手前
@@ -357,6 +536,7 @@
       el.style.left = (back * WASTE_PEEK_H_OFFSET) + 'px';
       el.style.top = '0';
       el.style.zIndex = String(100 - back);
+      let meaningInfo = null;
       if (!isFront) {
         // 裏向き
       } else if (isHeader) {
@@ -364,19 +544,21 @@
       } else {
         el.textContent = cardFace(c);
         if (c.cardType === 'emoji') el.style.fontSize = '2.1rem';
+        meaningInfo = { title: cardFace(c), meaning: c.meaning };
       }
-      if (isFront) wireDrag(el, 'waste');
+      if (isFront) wireDrag(el, 'waste', meaningInfo);
       wrap.appendChild(el);
     }
   }
 
-  // ---- ドラッグ&ドロップ ----
-  function wireDrag(el, laneIdx) {
-    let startX, startY, origLeft, origTop, dragging = false;
+  // ---- ドラッグ&ドロップ(+長押しで意味ヒント) ----
+  function wireDrag(el, laneIdx, meaningInfo) {
+    let startX, startY, origLeft, origTop, dragging = false, moved = false, holdTimer = null;
 
     function onDown(e) {
       const pt = e.touches ? e.touches[0] : e;
       startX = pt.clientX; startY = pt.clientY;
+      moved = false;
       const rect = el.getBoundingClientRect();
       origLeft = rect.left; origTop = rect.top;
       dragging = true;
@@ -389,12 +571,21 @@
       document.addEventListener('mouseup', onUp);
       document.addEventListener('touchmove', onMove, { passive: false });
       document.addEventListener('touchend', onUp);
+      if (meaningInfo && meaningInfo.meaning) {
+        clearTimeout(holdTimer);
+        holdTimer = setTimeout(() => { if (!moved) showMeaning(meaningInfo); }, 420);
+      }
     }
     function onMove(e) {
       if (!dragging) return;
       if (e.cancelable) e.preventDefault();
       const pt = e.touches ? e.touches[0] : e;
       const dx = pt.clientX - startX, dy = pt.clientY - startY;
+      if (!moved && (Math.abs(dx) > 6 || Math.abs(dy) > 6)) {
+        moved = true;
+        clearTimeout(holdTimer);
+        hideMeaning();
+      }
       el.style.left = (origLeft + dx) + 'px';
       el.style.top = (origTop + dy) + 'px';
       const hovered = laneUnderPoint(pt.clientX, pt.clientY);
@@ -404,6 +595,8 @@
     function onUp(e) {
       if (!dragging) return;
       dragging = false;
+      clearTimeout(holdTimer);
+      hideMeaning();
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
       document.removeEventListener('touchmove', onMove);
@@ -442,7 +635,8 @@
 
   // 手前から同じ仲間・同じ見た目(絵文字 or 文字)が何枚連続で重なっているか。
   // これが「束ね移動」でまとめて動かせる枚数になる。カテゴリーカードは束ねない。
-  // 絵文字カードと文字カードは、カテゴリーが同じでも見た目が違うので束ねない。
+  // テーマは1ゲーム中、絵文字モードか文字モードのどちらかに固定されているので、
+  // 同じカテゴリー内で絵文字と文字が混ざることはない(別テーマなら別catIndex)。
   function frontRunLength(loc) {
     if (loc === 'waste') {
       if (!waste.length || waste[waste.length - 1].type !== 'word') return waste.length ? 1 : 0;
@@ -495,15 +689,17 @@
       }
       pushHistory();
       consumeFront(fromLane, 1);
-      let collected = 0, faceWord = '?';
+      let collected = 0, faceWord = '?', faceMeaning = null;
       if (bundleLen > 0) {
         const taken = target.stack.splice(0, bundleLen);
         collected = bundleLen;
-        faceWord = cardFace(taken[taken.length - 1]);
+        const last = taken[taken.length - 1];
+        faceWord = cardFace(last);
+        faceMeaning = last.meaning;
       }
       target.pile = {
-        catIndex: card.catIndex, collected, target: CATEGORY_DEFS[card.catIndex].words.length,
-        label: card.label, faceWord, locked: toLane >= TOP_LANES,
+        catIndex: card.catIndex, collected, target: activeThemes[card.catIndex].words.length,
+        label: card.label, faceWord, faceMeaning, locked: toLane >= TOP_LANES,
       };
       if (bundleLen > 0) placedWordCards += bundleLen;
       afterSuccessfulMove(fromLane, toLane, target);
@@ -521,7 +717,9 @@
         pushHistory();
         const moved = consumeFront(fromLane, depositedCount);
         target.pile.collected += depositedCount;
-        target.pile.faceWord = cardFace(moved[moved.length - 1]);
+        const last = moved[moved.length - 1];
+        target.pile.faceWord = cardFace(last);
+        target.pile.faceMeaning = last.meaning;
         placedWordCards += depositedCount;
       }
     } else if (!target.pile && target.isTableau && target.stack.length && target.stack[0].type === 'word'
