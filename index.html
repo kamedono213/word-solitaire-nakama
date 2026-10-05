@@ -53,6 +53,7 @@
   .card.pile { border-color:#f2c14e; border-width:3px; box-shadow:0 4px 12px rgba(242,193,78,.4); }
   .card.header { background:#fff6da; border-color:#f2c14e; border-style:dashed; }
   .card.empty-slot { background:transparent; border:2px dashed rgba(255,255,255,.35); box-shadow:none; }
+  .card.facedown { background:repeating-linear-gradient(45deg,#4a8fd6 0 7px,#5a9fe0 7px 14px); border-color:#fff; }
   .card .crown { font-size:1.15rem; margin-bottom:2px; opacity:.55; }
   .card .frac { font-size:.64rem; color:#a98a2e; font-weight:900; margin-top:3px; }
   .card .htag { font-size:.6rem; color:#b6902c; font-weight:900; margin-bottom:2px; }
@@ -102,6 +103,7 @@
     <div id="subbar">
       <div id="moveBanner"><div class="lbl">手数</div><div class="val" id="moveCount">0</div></div>
       <div style="flex:1"></div>
+      <div id="wasteWrap" class="stackWrap" style="width:52px; max-width:52px; margin-right:10px;"></div>
       <div id="stockWrap"><div class="stockCard"></div><div id="stockBadge">0</div></div>
     </div>
     <div id="board">
@@ -157,6 +159,8 @@
     return shuffle(deck);
   }
 
+  let waste = []; // 山札からめくったカード(末尾=手前/操作可能、他は埋もれて不可)
+
   function setupGame() {
     const deck = buildDeck();
     totalWordCards = deck.filter((c) => c.type === 'word').length;
@@ -164,6 +168,7 @@
     moves = 0; coins = 0;
     hints = 3; undos = 3; shuffles = 3;
     history = [];
+    waste = [];
 
     lanes = [];
     for (let i = 0; i < TOP_LANES; i++) lanes.push({ isTableau: false, stack: [], pile: null });
@@ -179,15 +184,17 @@
     updateHud();
   }
 
-  function snapshot() { return JSON.parse(JSON.stringify({ lanes, stock, moves, placedWordCards })); }
+  function snapshot() { return JSON.parse(JSON.stringify({ lanes, stock, waste, moves, placedWordCards })); }
   function pushHistory() { history.push(snapshot()); if (history.length > 20) history.shift(); }
 
-  function refillLaneIfEmpty(laneIdx) {
-    const lane = lanes[laneIdx];
-    if (lane.isTableau && lane.stack.length === 0 && !lane.pile && stock.length) {
-      lane.stack.push(stock.pop());
-      updateStockBadge();
-    }
+  // 山札タップ: 1枚だけ表向きにめくってウェイスト(手前)に積む。
+  // 後からめくった方が手前になり、先にめくった方はその下に埋もれて使えなくなる。
+  function tapStock() {
+    if (!stock.length) { showToast('山札切れ'); return; }
+    pushHistory();
+    waste.push(stock.pop());
+    updateStockBadge();
+    renderWaste();
   }
 
   function updateHud() {
@@ -264,34 +271,65 @@
       return;
     }
 
-    // stack[0]が手前(一番操作できる)。奥のカードほど下にずらして重ねて見せる。
+    // stack[0]が手前(一番操作できる・表向き)。奥のカード(idx大)ほど裏向きで
+    // 上側に控えめにずらして重ねる(元レイアウト通り、手前が下・奥が上)。
     const depth = Math.min(lane.stack.length, MAX_PEEK + 1);
-    wrap.style.height = `calc(${(depth - 1) * PEEK_OFFSET}px + 100% / 0.75 * 0)`; // 高さはcard aspect-ratio込みでJS側で後調整
     const cardAspectHeight = wrap.getBoundingClientRect().width / 3 * 4;
     wrap.style.height = (cardAspectHeight + (depth - 1) * PEEK_OFFSET) + 'px';
 
-    for (let idx = Math.min(lane.stack.length, MAX_PEEK + 1) - 1; idx >= 0; idx--) {
+    for (let idx = depth - 1; idx >= 0; idx--) {
       const c = lane.stack[idx];
       const el = document.createElement('div');
       const isHeader = c.type === 'header';
-      el.className = 'card' + (isHeader ? ' header' : '') + (idx === 0 ? ' active' : ' buried');
-      el.style.top = (idx * PEEK_OFFSET) + 'px';
+      const isFront = idx === 0;
+      el.className = 'card' + (isFront ? ' active' : ' buried facedown') + (isFront && isHeader ? ' header' : '');
+      el.style.top = ((depth - 1 - idx) * PEEK_OFFSET) + 'px';
       el.style.zIndex = String(100 - idx);
-      if (isHeader) {
+      if (!isFront) {
+        // 裏向き: 中身は見せない
+      } else if (isHeader) {
         el.innerHTML = `<div class="htag">カテゴリー</div><div>${escapeHtml(c.label)}</div>`;
       } else {
         el.textContent = c.word;
-        if (idx === 0) {
-          const runLen = frontRunLength(li);
-          if (runLen > 1) {
-            const badge = document.createElement('div');
-            badge.className = 'bundleBadge';
-            badge.textContent = '×' + runLen;
-            el.appendChild(badge);
-          }
+        const runLen = frontRunLength(li);
+        if (runLen > 1) {
+          const badge = document.createElement('div');
+          badge.className = 'bundleBadge';
+          badge.textContent = '×' + runLen;
+          el.appendChild(badge);
         }
       }
-      if (idx === 0) wireDrag(el, li);
+      if (isFront) wireDrag(el, li);
+      wrap.appendChild(el);
+    }
+  }
+
+  function renderWaste() {
+    const wrap = $('wasteWrap');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    if (!waste.length) return;
+    const depth = Math.min(waste.length, MAX_PEEK + 1);
+    const cardAspectHeight = wrap.getBoundingClientRect().width / 3 * 4;
+    wrap.style.height = (cardAspectHeight + (depth - 1) * PEEK_OFFSET) + 'px';
+    // waste配列は末尾が手前(最後にめくった1枚)。奥(先にめくった方)を上に、裏向きで控えめに。
+    for (let back = depth - 1; back >= 0; back--) {
+      const idx = waste.length - 1 - back; // 0 = 手前
+      const c = waste[idx];
+      const el = document.createElement('div');
+      const isFront = back === 0;
+      const isHeader = c.type === 'header';
+      el.className = 'card' + (isFront ? ' active' : ' buried facedown') + (isFront && isHeader ? ' header' : '');
+      el.style.top = ((depth - 1 - back) * PEEK_OFFSET) + 'px';
+      el.style.zIndex = String(100 - back);
+      if (!isFront) {
+        // 裏向き
+      } else if (isHeader) {
+        el.innerHTML = `<div class="htag">カテゴリー</div><div>${escapeHtml(c.label)}</div>`;
+      } else {
+        el.textContent = c.word;
+      }
+      if (isFront) wireDrag(el, 'waste');
       wrap.appendChild(el);
     }
   }
@@ -342,7 +380,7 @@
       if (targetLane !== null && targetLane !== laneIdx) {
         attemptMove(laneIdx, targetLane);
       } else {
-        renderLaneStack(laneIdx);
+        renderSource(laneIdx);
       }
     }
     el.addEventListener('mousedown', onDown);
@@ -358,21 +396,40 @@
     return null;
   }
 
-  function frontCardOf(laneIdx) {
-    const lane = lanes[laneIdx];
-    if (lane.stack.length) return lane.stack[0];
-    return null;
+  // fromLaneは通常のレーン番号(0-7)か、特別な識別子 'waste'(山札からめくった
+  // ウェイスト置き場)のどちらか。ウェイストは配列の末尾が手前(操作可能)。
+  function frontCardOf(loc) {
+    if (loc === 'waste') return waste.length ? waste[waste.length - 1] : null;
+    const lane = lanes[loc];
+    return lane.stack.length ? lane.stack[0] : null;
   }
 
   // 手前から同じ仲間(単語カードのみ)が何枚連続で重なっているか。
   // これが「束ね移動」でまとめて動かせる枚数になる。カテゴリーカードは束ねない。
-  function frontRunLength(laneIdx) {
-    const stack = lanes[laneIdx].stack;
+  function frontRunLength(loc) {
+    if (loc === 'waste') {
+      if (!waste.length || waste[waste.length - 1].type !== 'word') return waste.length ? 1 : 0;
+      const cat = waste[waste.length - 1].catIndex;
+      let n = 0;
+      for (let i = waste.length - 1; i >= 0 && waste[i].type === 'word' && waste[i].catIndex === cat; i--) n++;
+      return n;
+    }
+    const stack = lanes[loc].stack;
     if (!stack.length || stack[0].type !== 'word') return stack.length ? 1 : 0;
     const cat = stack[0].catIndex;
     let n = 0;
     while (n < stack.length && stack[n].type === 'word' && stack[n].catIndex === cat) n++;
     return n;
+  }
+
+  // 手前からcount枚を取り除いて返す(レーンの先頭側/ウェイストの末尾側)。
+  function consumeFront(loc, count) {
+    if (loc === 'waste') return waste.splice(waste.length - count, count).reverse();
+    return lanes[loc].stack.splice(0, count);
+  }
+
+  function renderSource(loc) {
+    if (loc === 'waste') renderWaste(); else renderLaneStack(loc);
   }
 
   // カテゴリーカード→空き枠(0枚かつ未確定のレーン)で新しい山を作る。
@@ -389,7 +446,7 @@
       const ok = !target.pile && target.stack.length === 0;
       if (ok) {
         pushHistory();
-        lanes[fromLane].stack.shift();
+        consumeFront(fromLane, 1);
         target.pile = { catIndex: card.catIndex, collected: 0, target: CATEGORY_DEFS[card.catIndex].words.length, label: card.label, faceWord: '?' };
       } else {
         rejectMove(fromLane, toLane, '空いてる枠にしか置けないよ');
@@ -408,14 +465,14 @@
       depositedCount = Math.min(runLen, space);
       if (depositedCount > 0) {
         pushHistory();
-        const moved = lanes[fromLane].stack.splice(0, depositedCount);
+        const moved = consumeFront(fromLane, depositedCount);
         target.pile.collected += depositedCount;
         target.pile.faceWord = moved[moved.length - 1].word;
         placedWordCards += depositedCount;
       }
     } else if (!target.pile && target.isTableau && target.stack.length && target.stack[0].type === 'word' && target.stack[0].catIndex === card.catIndex) {
       pushHistory();
-      const moved = lanes[fromLane].stack.splice(0, runLen);
+      const moved = consumeFront(fromLane, runLen);
       target.stack.unshift(...moved);
       depositedCount = runLen; // 合体成功(消費はしてないが「成功」扱い)
     }
@@ -431,14 +488,13 @@
     play(false);
     showToast(msg);
     updateHud();
-    renderLaneStack(fromLane);
+    renderSource(fromLane);
     const toEl = $('stack-' + toLane).querySelector('.card.active, .card.empty-slot');
     if (toEl) { toEl.classList.add('wrong'); setTimeout(() => toEl.classList.remove('wrong'), 320); }
   }
 
   function afterSuccessfulMove(fromLane, toLane, target) {
     play(true);
-    refillLaneIfEmpty(fromLane);
 
     if (target.pile && target.pile.collected >= target.pile.target) {
       const label = target.pile.label;
@@ -447,13 +503,13 @@
       updateHud();
       setTimeout(() => {
         target.pile = null;
-        if (target.isTableau) refillLaneIfEmpty(toLane);
         renderBoard();
       }, 650);
     }
 
     updateHud();
     renderBoard();
+    if (fromLane === 'waste') renderWaste();
 
     if (placedWordCards >= totalWordCards) setTimeout(showClear, 500);
   }
@@ -463,15 +519,16 @@
   // ---- ツール ----
   $('hintBtn').addEventListener('click', () => {
     if (hints <= 0) return;
+    const sources = [...Array(LANES).keys(), 'waste'];
     // まず「空き枠にドラッグできるカテゴリーカード」を探し、無ければ「山に重ねられる単語カード」を探す。
-    for (let i = 0; i < LANES; i++) {
+    for (const i of sources) {
       const c = frontCardOf(i);
       if (c && c.type === 'header') {
         const emptyIdx = lanes.findIndex((l) => !l.pile && l.stack.length === 0);
         if (emptyIdx !== -1) { flashHint([i, emptyIdx]); hints--; updateHud(); return; }
       }
     }
-    for (let i = 0; i < LANES; i++) {
+    for (const i of sources) {
       const c = frontCardOf(i);
       if (c && c.type === 'word') {
         const pileIdx = lanes.findIndex((l) => l.pile && l.pile.catIndex === c.catIndex);
@@ -482,7 +539,8 @@
   });
   function flashHint(idxs) {
     idxs.forEach((li) => {
-      const c = $('stack-' + li).querySelector('.card.active, .card.empty-slot');
+      const wrap = li === 'waste' ? $('wasteWrap') : $('stack-' + li);
+      const c = wrap && wrap.querySelector('.card.active, .card.empty-slot');
       if (c) { c.style.outline = '3px solid #ffe08a'; setTimeout(() => { c.style.outline = ''; }, 1200); }
     });
   }
@@ -491,9 +549,10 @@
     if (undos <= 0 || !history.length) return;
     undos--;
     const snap = history.pop();
-    lanes = snap.lanes; stock = snap.stock; moves = snap.moves; placedWordCards = snap.placedWordCards;
+    lanes = snap.lanes; stock = snap.stock; waste = snap.waste; moves = snap.moves; placedWordCards = snap.placedWordCards;
     updateHud();
     renderBoard();
+    renderWaste();
   });
 
   $('shuffleBtn').addEventListener('click', () => {
@@ -564,10 +623,12 @@
     $('clearScreen').hidden = true;
     $('gameScreen').hidden = false;
     renderBoard();
+    renderWaste();
   }
 
   $('startBtn').addEventListener('click', startGame);
   $('retryBtn').addEventListener('click', startGame);
+  $('stockWrap').addEventListener('click', tapStock);
 })();
 </script>
 </body>
