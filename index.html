@@ -4,9 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>なかまあつめソリティア</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
 <style>
   :root { color-scheme: light; }
-  html,body { margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:#1d7a3f; touch-action:none; -webkit-user-select:none; user-select:none; font-family:-apple-system,system-ui,"Hiragino Maru Gothic ProN",sans-serif; }
+  html,body { margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:#1d7a3f; touch-action:none; -webkit-user-select:none; user-select:none; font-family:'Zen Maru Gothic','Hiragino Maru Gothic ProN',-apple-system,system-ui,sans-serif; }
   #app { position:fixed; inset:0; display:flex; flex-direction:column; }
 
   .screen { position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; background:#1d7a3f; z-index:10; padding:20px; box-sizing:border-box; text-align:center; }
@@ -21,7 +22,7 @@
   #coinIcon { width:34px; height:34px; border-radius:50%; background:radial-gradient(circle at 35% 30%,#ffe9a0,#f2c14e 60%,#c98f22); display:flex; align-items:center; justify-content:center; font-size:1.1rem; box-shadow:0 2px 4px rgba(0,0,0,.3); margin-right:8px; }
   #coinPlus { position:absolute; left:22px; top:22px; width:16px; height:16px; border-radius:50%; background:#2fae5e; color:#fff; font-size:.7rem; font-weight:900; display:flex; align-items:center; justify-content:center; border:2px solid #17341f; }
   #coinCount { color:#fff; font-weight:900; font-size:1rem; }
-  #levelLabel { color:#fff; font-weight:800; font-size:1.15rem; }
+  #levelLabel { color:#fff; font-weight:900; font-size:1.35rem; }
   #menuIcon { color:#fff; font-size:1.4rem; line-height:1; }
 
   #subbar { flex:0 0 auto; display:flex; align-items:flex-start; justify-content:space-between; padding:10px 14px 4px; }
@@ -30,11 +31,11 @@
     clip-path: polygon(0 0, 100% 0, 100% 78%, 55% 78%, 50% 100%, 45% 78%, 0 78%);
     box-shadow:0 3px 6px rgba(0,0,0,.2);
   }
-  #moveBanner .lbl { font-size:.62rem; opacity:.85; }
-  #moveBanner .val { font-size:1.3rem; line-height:1.1; }
+  #moveBanner .lbl { font-size:.72rem; opacity:.9; font-weight:800; }
+  #moveBanner .val { font-size:1.6rem; line-height:1.15; font-weight:900; }
   #topPiles { display:flex; align-items:flex-start; gap:10px; }
   #stockWrap { position:relative; width:88px; height:118px; cursor:pointer; }
-  .stockCard { position:absolute; inset:0; border-radius:10px; background:
+  .stockCard { position:absolute; inset:0; border-radius:14px; background:
     repeating-linear-gradient(45deg,#4a8fd6 0 8px,#5a9fe0 8px 16px); border:2px solid #fff; box-shadow:0 3px 8px rgba(0,0,0,.25); }
   #stockBadge { position:absolute; top:-6px; right:-6px; background:#2d2d2d; color:#fff; font-size:.7rem; font-weight:800; border-radius:999px; padding:3px 7px; border:2px solid #fff; }
 
@@ -47,22 +48,22 @@
   #board { flex:1; overflow-y:auto; padding:6px 10px 20px; }
   .row { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:14px; }
   .lane { display:flex; flex-direction:column; align-items:center; }
-  .tab { background:#f2c14e; color:#3a2a06; font-size:.66rem; font-weight:900; border-radius:8px 8px 0 0; padding:3px 10px; margin-bottom:-2px; z-index:5; max-width:92%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; position:relative; }
+  .tab { background:#f2c14e; color:#3a2a06; font-size:.8rem; font-weight:900; border-radius:10px 10px 0 0; padding:4px 12px; margin-bottom:-2px; z-index:5; max-width:92%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; position:relative; }
   .tab[hidden] { display:none; }
   .stackWrap { position:relative; width:100%; max-width:84px; }
 
   .card {
-    width:100%; aspect-ratio:3/4; border-radius:10px; background:#fdf8ec; box-shadow:0 3px 8px rgba(0,0,0,.2);
+    width:100%; aspect-ratio:3/4; border-radius:14px; background:#fdf8ec; box-shadow:0 3px 8px rgba(0,0,0,.2);
     display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; font-weight:800; color:#3a2e1f;
-    font-size:.84rem; line-height:1.2; padding:5px; box-sizing:border-box; border:2px solid #e3d7b8; position:absolute; left:0; right:0; top:0;
+    font-size:1rem; line-height:1.25; padding:5px; box-sizing:border-box; border:2px solid #e3d7b8; position:absolute; left:0; right:0; top:0;
   }
   .card.pile { border-color:#f2c14e; border-width:3px; box-shadow:0 4px 12px rgba(242,193,78,.4); }
   .card.header { background:#fff6da; border-color:#f2c14e; border-style:dashed; }
   .card.empty-slot { background:transparent; border:2px dashed rgba(255,255,255,.35); box-shadow:none; }
   .card.facedown { background:repeating-linear-gradient(45deg,#4a8fd6 0 7px,#5a9fe0 7px 14px); border-color:#fff; }
-  .card .crown { font-size:1.15rem; margin-bottom:2px; opacity:.55; }
-  .card .frac { font-size:.64rem; color:#a98a2e; font-weight:900; margin-top:3px; }
-  .card .htag { font-size:.6rem; color:#b6902c; font-weight:900; margin-bottom:2px; }
+  .card .crown { font-size:1.3rem; margin-bottom:2px; opacity:.55; }
+  .card .frac { font-size:.76rem; color:#a98a2e; font-weight:900; margin-top:3px; }
+  .card .htag { font-size:.7rem; color:#b6902c; font-weight:900; margin-bottom:2px; }
   .bundleBadge { position:absolute; top:-7px; right:-7px; background:#e0453f; color:#fff; font-size:.62rem; font-weight:900; border-radius:999px; padding:2px 6px; border:2px solid #fff; }
   .card.active { cursor:grab; }
   .card.buried { pointer-events:none; }
