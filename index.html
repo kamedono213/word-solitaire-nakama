@@ -525,7 +525,7 @@
   // 同じ仲間として扱われることもない。
   function pickThemesForGame() {
     const pool = shuffle([...THEMES]);
-    const count = 5 + Math.floor(Math.random() * 2); // 5〜6テーマ
+    const count = 7 + Math.floor(Math.random() * 2); // 7〜8テーマ(約8項目)
     return pool.slice(0, count).map((theme) => {
       const allowEmoji = theme.words.every((w) => w[1]);
       const mode = (allowEmoji && Math.random() < 0.5) ? 'emoji' : 'text';
@@ -563,7 +563,7 @@
     lanes = [];
     for (let i = 0; i < TOP_LANES; i++) lanes.push({ isTableau: false, stack: [], pile: null });
 
-    const reserve = Math.max(6, Math.min(14, Math.round(deck.length * 0.35)));
+    const reserve = Math.max(6, Math.min(20, Math.round(deck.length * 0.35)));
     const dealCount = deck.length - reserve;
     const tableauDeal = deck.slice(0, dealCount);
     stock = deck.slice(dealCount);
@@ -580,8 +580,18 @@
 
   // 山札タップ: 1枚だけ表向きにめくってウェイスト(手前)に積む。
   // 後からめくった方が手前になり、先にめくった方はその下に埋もれて使えなくなる。
+  // 山札が尽きたら、捨て札(ウェイスト)をシャッフルして山札に戻し、
+  // 詰まずに続けられるようにする(ウェイストも空ならもう手詰まり)。
   function tapStock() {
-    if (!stock.length) { showToast('山札切れ'); return; }
+    if (!stock.length) {
+      if (!waste.length) { showToast('山札も捨て札もありません'); return; }
+      pushHistory();
+      stock = shuffle(waste.splice(0, waste.length));
+      updateStockBadge();
+      renderWaste();
+      showToast('山札をシャッフルして再開！');
+      return;
+    }
     pushHistory();
     waste.push(stock.pop());
     updateStockBadge();
@@ -920,9 +930,11 @@
     let depositedCount = 0;
 
     if (target.pile && !target.pile.locked && target.pile.catIndex === card.catIndex) {
+      // 束ねたカードは、まとめて入りきる時だけ移動する(途中で千切れて
+      // 一部だけ置いていかれる、ということがないように)。
       const space = target.pile.target - target.pile.collected;
-      depositedCount = Math.min(runLen, space);
-      if (depositedCount > 0) {
+      if (runLen <= space) {
+        depositedCount = runLen;
         pushHistory();
         const moved = consumeFront(fromLane, depositedCount);
         target.pile.collected += depositedCount;
@@ -981,7 +993,9 @@
   function afterSuccessfulMove(fromLane, toLane, target) {
     play(true);
 
-    if (target.pile && target.pile.collected >= target.pile.target) {
+    // ロック中(タブローで発見しただけ)の山は、たとえ必要な枚数が揃っても
+    // 「達成」扱いにしない。完成ゾーン(上段)へ移して初めて達成になる。
+    if (target.pile && !target.pile.locked && target.pile.collected >= target.pile.target) {
       const label = target.pile.label;
       coins += 10;
       showToast(`「${label}」コンプリート！+10コイン`);
