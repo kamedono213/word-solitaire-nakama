@@ -141,6 +141,16 @@
     { label: 'のりもの', words: ['でんしゃ','ひこうき','ふね','バス'] },
     { label: 'いろ',     words: ['あか','あお','きいろ','みどり'] },
   ];
+  // 一部の単語カードは、文字ではなく絵文字で出てくることがある。絵は絵同士、
+  // 文字は文字同士でしか束ねられない(カテゴリーが同じでも見た目が違うと合体しない)。
+  const EMOJI_MAP = {
+    'イヌ':'🐶','ネコ':'🐱','ゾウ':'🐘','キリン':'🦒',
+    'リンゴ':'🍎','バナナ':'🍌','イチゴ':'🍓','ブドウ':'🍇',
+    'サッカー':'⚽','やきゅう':'⚾','すいえい':'🏊','テニス':'🎾',
+    'はれ':'☀️','あめ':'☔','くもり':'☁️','ゆき':'❄️',
+    'でんしゃ':'🚃','ひこうき':'✈️','ふね':'🚢','バス':'🚌',
+    'あか':'🔴','あお':'🔵','きいろ':'🟡','みどり':'🟢',
+  };
   const TOP_LANES = 4, BOTTOM_LANES = 4, LANES = TOP_LANES + BOTTOM_LANES;
   const STOCK_RESERVE = 10; // 初期配置せず控えに残しておく枚数
 
@@ -163,7 +173,11 @@
     const deck = [];
     CATEGORY_DEFS.forEach((cat, ci) => {
       deck.push({ type: 'header', catIndex: ci, label: cat.label });
-      cat.words.forEach((w) => deck.push({ type: 'word', catIndex: ci, word: w }));
+      cat.words.forEach((w) => {
+        const emoji = EMOJI_MAP[w] || null;
+        const cardType = (emoji && Math.random() < 0.5) ? 'emoji' : 'text';
+        deck.push({ type: 'word', catIndex: ci, word: w, emoji, cardType });
+      });
     });
     return shuffle(deck);
   }
@@ -254,23 +268,18 @@
   const PEEK_OFFSET = 15; // カード1枚ごとに下へずらす量(px)
   const MAX_PEEK = 5;     // これ以上奥は同じ位置に重ねて省略
 
+  function cardFace(c) { return c.type === 'word' && c.cardType === 'emoji' ? c.emoji : (c.type === 'word' ? c.word : null); }
+
+  // 手前は「山(カテゴリー確定済み)」か「束ねた単語カードの先頭」のどちらか。
+  // 奥に控えてるカードのうち、手前と同じ束の一部(同カテゴリ・同じ絵/文字タイプが
+  // 連続してる分)は表向きで中身が見えるようにし、それより奥は本当に未知なので裏向き。
   function renderLaneStack(li) {
     const lane = lanes[li];
     const wrap = $('stack-' + li);
     wrap.innerHTML = '';
 
-    if (lane.pile) {
-      wrap.style.height = '';
-      const card = document.createElement('div');
-      card.className = 'card pile active';
-      card.style.position = 'relative';
-      card.innerHTML = `<div class="crown">👑</div><div>${escapeHtml(lane.pile.faceWord)}</div><div class="frac">${lane.pile.collected}/${lane.pile.target}</div>`;
-      wireDrag(card, li);
-      wrap.appendChild(card);
-      return;
-    }
-
-    if (!lane.stack.length) {
+    const hasPile = !!lane.pile;
+    if (!hasPile && lane.stack.length === 0) {
       wrap.style.height = '';
       const empty = document.createElement('div');
       empty.className = 'card empty-slot';
@@ -280,37 +289,54 @@
       return;
     }
 
-    // stack[0]が手前(一番操作できる・表向き)。奥のカード(idx大)ほど裏向きで
-    // 上側に控えめにずらして重ねる(元レイアウト通り、手前が下・奥が上)。
-    const depth = Math.min(lane.stack.length, MAX_PEEK + 1);
+    const queue = hasPile ? lane.stack : lane.stack.slice(1);
+    const bundleFaceUpCount = hasPile ? 0 : Math.max(0, frontRunLength(li) - 1);
+    const queueDepth = Math.min(queue.length, MAX_PEEK);
     const cardAspectHeight = wrap.getBoundingClientRect().width / 3 * 4;
-    wrap.style.height = (cardAspectHeight + (depth - 1) * PEEK_OFFSET) + 'px';
+    wrap.style.height = (cardAspectHeight + queueDepth * PEEK_OFFSET) + 'px';
 
-    for (let idx = depth - 1; idx >= 0; idx--) {
-      const c = lane.stack[idx];
+    for (let q = queueDepth; q >= 1; q--) {
+      const c = queue[q - 1];
       const el = document.createElement('div');
+      const faceUp = (q - 1) < bundleFaceUpCount;
+      el.className = 'card buried' + (faceUp ? '' : ' facedown');
+      el.style.top = ((queueDepth - q) * PEEK_OFFSET) + 'px';
+      el.style.zIndex = String(100 - q);
+      if (faceUp) {
+        el.textContent = cardFace(c);
+        if (c.cardType === 'emoji') el.style.fontSize = '1.8rem';
+      }
+      wrap.appendChild(el);
+    }
+
+    const frontTop = queueDepth * PEEK_OFFSET;
+    const front = document.createElement('div');
+    front.style.top = frontTop + 'px';
+    front.style.zIndex = '100';
+    if (hasPile) {
+      front.className = 'card pile active';
+      front.innerHTML = `<div class="crown">👑</div><div>${escapeHtml(lane.pile.faceWord)}</div><div class="frac">${lane.pile.collected}/${lane.pile.target}</div>`;
+      if (lane.pile.locked) front.innerHTML += `<div class="htag">🔒 完成ゾーンへ</div>`;
+    } else {
+      const c = lane.stack[0];
       const isHeader = c.type === 'header';
-      const isFront = idx === 0;
-      el.className = 'card' + (isFront ? ' active' : ' buried facedown') + (isFront && isHeader ? ' header' : '');
-      el.style.top = ((depth - 1 - idx) * PEEK_OFFSET) + 'px';
-      el.style.zIndex = String(100 - idx);
-      if (!isFront) {
-        // 裏向き: 中身は見せない
-      } else if (isHeader) {
-        el.innerHTML = `<div class="htag">カテゴリー</div><div>${escapeHtml(c.label)}</div>`;
+      front.className = 'card active' + (isHeader ? ' header' : '');
+      if (isHeader) {
+        front.innerHTML = `<div class="htag">カテゴリー</div><div>${escapeHtml(c.label)}</div>`;
       } else {
-        el.textContent = c.word;
+        front.textContent = cardFace(c);
+        if (c.cardType === 'emoji') front.style.fontSize = '2.1rem';
         const runLen = frontRunLength(li);
         if (runLen > 1) {
           const badge = document.createElement('div');
           badge.className = 'bundleBadge';
           badge.textContent = '×' + runLen;
-          el.appendChild(badge);
+          front.appendChild(badge);
         }
       }
-      if (isFront) wireDrag(el, li);
-      wrap.appendChild(el);
     }
+    wireDrag(front, li);
+    wrap.appendChild(front);
   }
 
   const WASTE_PEEK_H_OFFSET = 14; // ウェイストは縦ではなく横にずらして重ねる(元レイアウト通り)
@@ -336,7 +362,8 @@
       } else if (isHeader) {
         el.innerHTML = `<div class="htag">カテゴリー</div><div>${escapeHtml(c.label)}</div>`;
       } else {
-        el.textContent = c.word;
+        el.textContent = cardFace(c);
+        if (c.cardType === 'emoji') el.style.fontSize = '2.1rem';
       }
       if (isFront) wireDrag(el, 'waste');
       wrap.appendChild(el);
@@ -413,21 +440,22 @@
     return lane.stack.length ? lane.stack[0] : null;
   }
 
-  // 手前から同じ仲間(単語カードのみ)が何枚連続で重なっているか。
+  // 手前から同じ仲間・同じ見た目(絵文字 or 文字)が何枚連続で重なっているか。
   // これが「束ね移動」でまとめて動かせる枚数になる。カテゴリーカードは束ねない。
+  // 絵文字カードと文字カードは、カテゴリーが同じでも見た目が違うので束ねない。
   function frontRunLength(loc) {
     if (loc === 'waste') {
       if (!waste.length || waste[waste.length - 1].type !== 'word') return waste.length ? 1 : 0;
-      const cat = waste[waste.length - 1].catIndex;
+      const cat = waste[waste.length - 1].catIndex, ctype = waste[waste.length - 1].cardType;
       let n = 0;
-      for (let i = waste.length - 1; i >= 0 && waste[i].type === 'word' && waste[i].catIndex === cat; i--) n++;
+      for (let i = waste.length - 1; i >= 0 && waste[i].type === 'word' && waste[i].catIndex === cat && waste[i].cardType === ctype; i--) n++;
       return n;
     }
     const stack = lanes[loc].stack;
     if (!stack.length || stack[0].type !== 'word') return stack.length ? 1 : 0;
-    const cat = stack[0].catIndex;
+    const cat = stack[0].catIndex, ctype = stack[0].cardType;
     let n = 0;
-    while (n < stack.length && stack[n].type === 'word' && stack[n].catIndex === cat) n++;
+    while (n < stack.length && stack[n].type === 'word' && stack[n].catIndex === cat && stack[n].cardType === ctype) n++;
     return n;
   }
 
@@ -441,10 +469,16 @@
     if (loc === 'waste') renderWaste(); else renderLaneStack(loc);
   }
 
-  // カテゴリーカード→空き枠(0枚かつ未確定のレーン)で新しい山を作る。
-  // 単語カード(手前に同じ仲間が連続してれば束ねて)→既にできてる同じ仲間の山に重ねて
-  // 納品するか、別のタブロー列の同じ仲間の束に合体させて束を育てる。
+  // カテゴリーカード→(a)空き枠で新しい山を作る、または(b)既にできてる同じ仲間の
+  //   束の上に直接重ねてその場で発見する(その場合はロックされ、育てるには完成
+  //   ゾーン(上段)へ移す必要がある)。
+  // 単語カード(手前に同じ仲間・同じ見た目が連続してれば束ねて)→既にできてる
+  //   同じ仲間の山(ロックされてないもの)に納品するか、別のタブロー列の同じ束に
+  //   合体させて束を育てるか、空きマスに1枚だけとりあえず置く。
+  // 山(カテゴリー確定済みのレーン)が手前にある場合は、完成ゾーンへの移動として扱う。
   function attemptMove(fromLane, toLane) {
+    if (fromLane !== 'waste' && lanes[fromLane].pile) { attemptMovePile(fromLane, toLane); return; }
+
     const card = frontCardOf(fromLane);
     const target = lanes[toLane];
     if (!card) return;
@@ -452,15 +486,26 @@
     moves++;
 
     if (card.type === 'header') {
-      const ok = !target.pile && target.stack.length === 0;
-      if (ok) {
-        pushHistory();
-        consumeFront(fromLane, 1);
-        target.pile = { catIndex: card.catIndex, collected: 0, target: CATEGORY_DEFS[card.catIndex].words.length, label: card.label, faceWord: '?' };
-      } else {
-        rejectMove(fromLane, toLane, '空いてる枠にしか置けないよ');
+      const isEmpty = !target.pile && target.stack.length === 0;
+      const bundleLen = (!target.pile && target.stack.length && target.stack[0].type === 'word' && target.stack[0].catIndex === card.catIndex)
+        ? frontRunLength(toLane) : 0;
+      if (!isEmpty && bundleLen === 0) {
+        rejectMove(fromLane, toLane, '空いてる枠か、同じ仲間の束にしか置けないよ');
         return;
       }
+      pushHistory();
+      consumeFront(fromLane, 1);
+      let collected = 0, faceWord = '?';
+      if (bundleLen > 0) {
+        const taken = target.stack.splice(0, bundleLen);
+        collected = bundleLen;
+        faceWord = cardFace(taken[taken.length - 1]);
+      }
+      target.pile = {
+        catIndex: card.catIndex, collected, target: CATEGORY_DEFS[card.catIndex].words.length,
+        label: card.label, faceWord, locked: toLane >= TOP_LANES,
+      };
+      if (bundleLen > 0) placedWordCards += bundleLen;
       afterSuccessfulMove(fromLane, toLane, target);
       return;
     }
@@ -469,27 +514,51 @@
     const runLen = frontRunLength(fromLane);
     let depositedCount = 0;
 
-    if (target.pile && target.pile.catIndex === card.catIndex) {
+    if (target.pile && !target.pile.locked && target.pile.catIndex === card.catIndex) {
       const space = target.pile.target - target.pile.collected;
       depositedCount = Math.min(runLen, space);
       if (depositedCount > 0) {
         pushHistory();
         const moved = consumeFront(fromLane, depositedCount);
         target.pile.collected += depositedCount;
-        target.pile.faceWord = moved[moved.length - 1].word;
+        target.pile.faceWord = cardFace(moved[moved.length - 1]);
         placedWordCards += depositedCount;
       }
-    } else if (!target.pile && target.isTableau && target.stack.length && target.stack[0].type === 'word' && target.stack[0].catIndex === card.catIndex) {
+    } else if (!target.pile && target.isTableau && target.stack.length && target.stack[0].type === 'word'
+        && target.stack[0].catIndex === card.catIndex && target.stack[0].cardType === card.cardType) {
+      // 既存の束に合体: 束ごと移動して育てる
       pushHistory();
       const moved = consumeFront(fromLane, runLen);
       target.stack.unshift(...moved);
-      depositedCount = runLen; // 合体成功(消費はしてないが「成功」扱い)
+      depositedCount = runLen;
+    } else if (!target.pile && target.isTableau && target.stack.length === 0) {
+      // 空きマスには、好きなカードを1枚だけとりあえず置ける(自由な一時置き場)
+      pushHistory();
+      const moved = consumeFront(fromLane, 1);
+      target.stack.unshift(...moved);
+      depositedCount = 1;
     }
 
     if (depositedCount <= 0) {
       rejectMove(fromLane, toLane, 'ちがう仲間みたい…');
       return;
     }
+    afterSuccessfulMove(fromLane, toLane, target);
+  }
+
+  // ロックされた(タブローで発見した)山を、空いてる完成ゾーン(上段)へ移す。
+  // 移した先ではロックが外れ、通常通り育てられるようになる。
+  function attemptMovePile(fromLane, toLane) {
+    const target = lanes[toLane];
+    moves++;
+    const ok = toLane < TOP_LANES && !target.pile && target.stack.length === 0;
+    if (!ok) {
+      rejectMove(fromLane, toLane, '空いてる完成ゾーンにしか移せないよ');
+      return;
+    }
+    pushHistory();
+    target.pile = { ...lanes[fromLane].pile, locked: false };
+    lanes[fromLane].pile = null;
     afterSuccessfulMove(fromLane, toLane, target);
   }
 
@@ -540,7 +609,7 @@
     for (const i of sources) {
       const c = frontCardOf(i);
       if (c && c.type === 'word') {
-        const pileIdx = lanes.findIndex((l) => l.pile && l.pile.catIndex === c.catIndex);
+        const pileIdx = lanes.findIndex((l) => l.pile && !l.pile.locked && l.pile.catIndex === c.catIndex);
         if (pileIdx !== -1) { flashHint([i, pileIdx]); hints--; updateHud(); return; }
       }
     }
@@ -567,8 +636,9 @@
   $('shuffleBtn').addEventListener('click', () => {
     if (shuffles <= 0) return;
     shuffles--;
+    // 既に束(frontRunLength>1)ができてるレーンは、中身がズレて壊れないよう対象外にする。
     const movable = [];
-    lanes.forEach((lane, i) => { if (!lane.pile && lane.stack.length) movable.push(i); });
+    lanes.forEach((lane, i) => { if (!lane.pile && lane.stack.length && frontRunLength(i) <= 1) movable.push(i); });
     const cards = shuffle(movable.map((i) => lanes[i].stack[0]));
     movable.forEach((i, idx) => { lanes[i].stack[0] = cards[idx]; });
     updateHud();
