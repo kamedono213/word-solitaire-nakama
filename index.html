@@ -6,43 +6,57 @@
 <title>なかまあつめソリティア</title>
 <style>
   :root { color-scheme: light; }
-  html,body { margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:#eef2f6; touch-action:none; -webkit-user-select:none; user-select:none; font-family:-apple-system,system-ui,"Hiragino Maru Gothic ProN",sans-serif; }
+  html,body { margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:#1d7a3f; touch-action:none; -webkit-user-select:none; user-select:none; font-family:-apple-system,system-ui,"Hiragino Maru Gothic ProN",sans-serif; }
   #app { position:fixed; inset:0; display:flex; flex-direction:column; }
 
-  .screen { position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; background:#eef2f6; z-index:10; padding:20px; box-sizing:border-box; text-align:center; }
+  .screen { position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; background:#1d7a3f; z-index:10; padding:20px; box-sizing:border-box; text-align:center; }
   .screen[hidden] { display:none; }
-  .screen h1 { font-size:1.5rem; margin:0; color:#2d3b4e; }
-  .screen p { margin:0; color:#5a6b7d; font-size:.92rem; line-height:1.7; max-width:320px; }
-  .bigbtn { border:0; padding:14px 32px; border-radius:999px; background:#4a7bd4; color:#fff; font-weight:800; font-size:1.05rem; box-shadow:0 6px 16px rgba(74,123,212,.35); }
+  .screen h1 { font-size:1.5rem; margin:0; color:#fff; }
+  .screen p { margin:0; color:#d8ecd8; font-size:.92rem; line-height:1.7; max-width:320px; }
+  .bigbtn { border:0; padding:14px 32px; border-radius:999px; background:#f2c14e; color:#3a2a06; font-weight:800; font-size:1.05rem; box-shadow:0 6px 16px rgba(0,0,0,.25); }
   .bigbtn:active { transform:scale(.97); }
-  .ghostbtn { border:1px solid #c7d2de; background:#fff; color:#4a5a6e; padding:10px 24px; border-radius:999px; font-weight:700; font-size:.9rem; }
 
-  #hud { flex:0 0 auto; display:flex; justify-content:space-between; align-items:center; padding:10px 14px; padding-top:calc(10px + env(safe-area-inset-top,0px)); font-size:.8rem; font-weight:800; color:#4a5a6e; }
-  #hud .stat { background:#fff; border-radius:999px; padding:6px 14px; box-shadow:0 2px 6px rgba(0,0,0,.06); }
+  /* ---- top chrome ---- */
+  #topbar { flex:0 0 auto; display:flex; align-items:center; justify-content:space-between; padding:10px 14px; padding-top:calc(10px + env(safe-area-inset-top,0px)); }
+  #moveBanner { background:#2fae5e; color:#fff; font-weight:900; border-radius:4px 4px 12px 12px; padding:8px 14px 10px; text-align:center; position:relative; box-shadow:0 3px 6px rgba(0,0,0,.2); }
+  #moveBanner::after { content:''; position:absolute; left:0; bottom:-8px; border-width:8px 0 0 50px; border-style:solid; border-color:transparent; }
+  #moveBanner .lbl { font-size:.62rem; opacity:.85; }
+  #moveBanner .val { font-size:1.3rem; line-height:1.1; }
+  #levelLabel { color:#fff; font-weight:800; font-size:1.15rem; }
+  #stockWrap { position:relative; width:52px; height:70px; }
+  .stockCard { position:absolute; inset:0; border-radius:8px; background:
+    repeating-linear-gradient(45deg,#4a8fd6 0 8px,#5a9fe0 8px 16px); border:2px solid #fff; box-shadow:0 3px 8px rgba(0,0,0,.25); }
+  #stockBadge { position:absolute; top:-6px; right:-6px; background:#2d2d2d; color:#fff; font-size:.68rem; font-weight:800; border-radius:999px; padding:2px 6px; border:2px solid #fff; }
 
-  #categories { flex:0 0 auto; display:grid; grid-template-columns:repeat(4,1fr); gap:8px; padding:4px 10px 10px; }
-  .cat { background:#fff; border-radius:14px; padding:8px 6px; text-align:center; box-shadow:0 2px 8px rgba(0,0,0,.06); border:2px solid transparent; transition:border-color .15s, transform .15s; position:relative; }
-  .cat.hot { border-color:#4a7bd4; transform:scale(1.04); }
-  .cat .label { font-size:.78rem; font-weight:800; color:#2d3b4e; }
-  .cat .progress { font-size:.68rem; color:#8a97a6; margin-top:2px; }
-  .cat .bar { height:4px; border-radius:2px; background:#e3e8ee; margin-top:5px; overflow:hidden; }
-  .cat .bar i { display:block; height:100%; background:#4a7bd4; width:0%; transition:width .25s; }
-
-  #board { flex:1; display:flex; justify-content:center; align-items:flex-start; gap:10px; padding:14px 10px; overflow:hidden; }
-  .col { display:flex; flex-direction:column; align-items:center; position:relative; width:15%; max-width:78px; }
+  /* ---- board ---- */
+  #board { flex:1; display:grid; grid-template-columns:repeat(4,1fr); grid-auto-rows:min-content; gap:10px 8px; padding:8px 10px; overflow-y:auto; align-content:start; }
+  .lane { display:flex; flex-direction:column; align-items:center; min-height:120px; }
+  .tab { background:#f2c14e; color:#3a2a06; font-size:.68rem; font-weight:900; border-radius:8px 8px 0 0; padding:3px 10px; margin-bottom:-2px; z-index:2; max-width:90%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .tab[hidden] { display:none; }
+  .stack { position:relative; width:100%; max-width:86px; }
+  .peek { background:#fdf8ec; border:1px solid #e3d7b8; border-radius:6px; padding:3px 2px; font-size:.64rem; font-weight:700; color:#8a7c54; text-align:center; margin-bottom:-14px; position:relative; box-shadow:0 2px 3px rgba(0,0,0,.08); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .card {
-    width:100%; aspect-ratio:3/4; border-radius:10px; background:#fff; box-shadow:0 3px 10px rgba(0,0,0,.12);
-    display:flex; align-items:center; justify-content:center; text-align:center; font-weight:800; color:#2d3b4e;
-    font-size:.78rem; line-height:1.3; padding:4px; box-sizing:border-box; position:absolute; left:0; right:0;
+    width:100%; aspect-ratio:3/4; border-radius:10px; background:#fdf8ec; box-shadow:0 3px 10px rgba(0,0,0,.2);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; font-weight:800; color:#3a2e1f;
+    font-size:.86rem; line-height:1.25; padding:6px; box-sizing:border-box; border:2px solid #e3d7b8; position:relative;
   }
-  .card.stacked { box-shadow:0 1px 3px rgba(0,0,0,.08); color:#c3cad2; background:#f4f6f8; }
-  .card.active { cursor:grab; z-index:5; }
-  .card.dragging { z-index:50; box-shadow:0 10px 26px rgba(0,0,0,.25); cursor:grabbing; }
+  .card.pile { border-color:#f2c14e; border-width:3px; box-shadow:0 4px 12px rgba(242,193,78,.4); }
+  .card .crown { font-size:1.3rem; margin-bottom:2px; opacity:.5; }
+  .card .frac { font-size:.66rem; color:#a98a2e; font-weight:900; margin-top:3px; }
+  .card.active { cursor:grab; }
+  .card.dragging { position:fixed !important; z-index:80; box-shadow:0 12px 28px rgba(0,0,0,.35); cursor:grabbing; }
+  .card.hot-target { outline:3px solid #fff; outline-offset:2px; }
+  .card.wrong { animation: shake .3s; }
+  @keyframes shake { 0%,100%{transform:translateX(0);} 25%{transform:translateX(-6px);} 75%{transform:translateX(6px);} }
 
-  #toast { position:fixed; left:50%; top:14%; transform:translate(-50%,-50%) scale(.9); background:#2d3b4e; color:#fff; padding:10px 20px; border-radius:999px; font-size:.85rem; font-weight:700; z-index:40; opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; }
+  #toast { position:fixed; left:50%; top:16%; transform:translate(-50%,-50%) scale(.9); background:#2d2d2d; color:#fff; padding:10px 20px; border-radius:999px; font-size:.85rem; font-weight:700; z-index:90; opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; }
   #toast.show { opacity:1; transform:translate(-50%,-50%) scale(1); }
 
-  .confetti { position:fixed; top:-10px; width:8px; height:8px; border-radius:2px; z-index:60; }
+  #bottomBar { flex:0 0 auto; display:flex; justify-content:center; gap:26px; padding:10px 0 calc(14px + env(safe-area-inset-bottom,0px)); }
+  .toolbtn { position:relative; width:52px; height:52px; border-radius:14px; background:#fff; border:0; display:flex; align-items:center; justify-content:center; font-size:1.3rem; box-shadow:0 3px 8px rgba(0,0,0,.2); }
+  .toolbtn .badge { position:absolute; top:-6px; right:-6px; background:#e0453f; color:#fff; font-size:.65rem; font-weight:800; border-radius:999px; min-width:16px; height:16px; display:flex; align-items:center; justify-content:center; padding:0 3px; border:2px solid #fff; }
+
+  .confetti { position:fixed; top:-10px; width:8px; height:8px; border-radius:2px; z-index:95; }
 </style>
 </head>
 <body>
@@ -50,7 +64,7 @@
 
   <div id="titleScreen" class="screen">
     <h1>なかまあつめソリティア</h1>
-    <p>山札のカードをめくって、合うカテゴリへドラッグ。各列は一番上のカードだけ動かせます。全部仲間分けできたらクリア！</p>
+    <p>どのカードがどの仲間かはナイショ。似てそうなカード同士をドラッグで重ねて、仲間の山を見つけよう。合ってれば山が育ち、違えば弾かれる。</p>
     <button class="bigbtn" id="startBtn">はじめる</button>
   </div>
 
@@ -61,12 +75,17 @@
   </div>
 
   <div id="gameScreen" hidden style="display:flex; flex-direction:column; height:100%;">
-    <div id="hud">
-      <span class="stat">ミス <span id="missCount">0</span></span>
-      <span class="stat">のこり <span id="remainCount">24</span></span>
+    <div id="topbar">
+      <div id="moveBanner"><div class="lbl">手数</div><div class="val" id="moveCount">0</div></div>
+      <div id="levelLabel">なかまあつめ</div>
+      <div id="stockWrap"><div class="stockCard"></div><div id="stockBadge">0</div></div>
     </div>
-    <div id="categories"></div>
     <div id="board"></div>
+    <div id="bottomBar">
+      <button class="toolbtn" id="hintBtn">💡<span class="badge" id="hintBadge">3</span></button>
+      <button class="toolbtn" id="undoBtn">↩️<span class="badge" id="undoBadge">3</span></button>
+      <button class="toolbtn" id="shuffleBtn">🔀<span class="badge" id="shuffleBadge">1</span></button>
+    </div>
   </div>
 
 </div>
@@ -76,19 +95,25 @@
 (() => {
   const $ = (id) => document.getElementById(id);
 
-  const CATEGORIES = [
-    { id: 'animal', label: 'どうぶつ', color: '#e07a5f', words: ['イヌ','ネコ','ゾウ','キリン','パンダ','ウサギ'] },
-    { id: 'fruit',  label: 'くだもの', color: '#81b29a', words: ['リンゴ','バナナ','イチゴ','ブドウ','モモ','メロン'] },
-    { id: 'sport',  label: 'スポーツ', color: '#f2cc8f', words: ['サッカー','やきゅう','すいえい','テニス','バレー','じゅうどう'] },
-    { id: 'weather',label: 'てんき',   words: ['はれ','あめ','くもり','ゆき','かみなり','きり'], color: '#a0c4e2' },
+  // カテゴリ名はゲーム開始時には伏せられていて、2枚マッチした時点で初めて表示される。
+  const CATEGORY_DEFS = [
+    { label: 'どうぶつ', words: ['イヌ','ネコ','ゾウ','キリン'] },
+    { label: 'くだもの', words: ['リンゴ','バナナ','イチゴ','ブドウ','モモ'] },
+    { label: 'スポーツ', words: ['サッカー','やきゅう','すいえい'] },
+    { label: 'てんき',   words: ['はれ','あめ','くもり','ゆき'] },
+    { label: 'のりもの', words: ['でんしゃ','ひこうき','ふね','バス','じてんしゃ'] },
+    { label: 'いろ',     words: ['あか','あお','きいろ'] },
   ];
-  const COLS = 6, ROWS = 4; // 6列 x 4段 = 24枚
+  const LANES = 8;
+  const INITIAL_DEPTH = 2; // 各レーンに最初に配るカード枚数
 
-  let cols = []; // each: [{word, catId}, ...] (index 0 = bottom, last = top/active)
-  let progress = {}; // catId -> count placed
-  let misses = 0;
-  let placedTotal = 0;
-  const TOTAL = COLS * ROWS;
+  let lanes = [];      // lanes[i] = { stack: [{word,catIndex}, ...](0=手前), pile: null|{catIndex,collected,target,label,faceWord} }
+  let stock = [];      // 控えのカード
+  let moves = 0;
+  let totalCards = 0;
+  let placedCards = 0;
+  let hints = 3, undos = 3, shuffles = 1;
+  let history = []; // undo用のスナップショット
 
   function shuffle(arr) {
     for (let i = arr.length - 1; i > 0; i--) {
@@ -100,38 +125,55 @@
 
   function buildDeck() {
     const deck = [];
-    for (const cat of CATEGORIES) {
-      for (const w of cat.words) deck.push({ word: w, catId: cat.id });
-    }
+    CATEGORY_DEFS.forEach((cat, ci) => { cat.words.forEach((w) => deck.push({ word: w, catIndex: ci })); });
     return shuffle(deck);
   }
 
-  function dealCols() {
+  function setupGame() {
     const deck = buildDeck();
-    cols = Array.from({ length: COLS }, () => []);
+    totalCards = deck.length;
+    placedCards = 0;
+    moves = 0;
+    hints = 3; undos = 3; shuffles = 1;
+    history = [];
+    lanes = Array.from({ length: LANES }, () => ({ stack: [], pile: null }));
     let i = 0;
-    for (let r = 0; r < ROWS; r++) {
-      for (let c = 0; c < COLS; c++) {
-        cols[c].push(deck[i++]);
+    for (let d = 0; d < INITIAL_DEPTH; d++) {
+      for (let l = 0; l < LANES; l++) {
+        if (i < deck.length) lanes[l].stack.push(deck[i++]);
       }
+    }
+    stock = deck.slice(i);
+    updateHud();
+  }
+
+  function snapshot() {
+    return JSON.parse(JSON.stringify({ lanes, stock, moves, placedCards }));
+  }
+  function pushHistory() {
+    history.push(snapshot());
+    if (history.length > 20) history.shift();
+  }
+
+  function refillLaneIfEmpty(laneIdx) {
+    const lane = lanes[laneIdx];
+    if (lane.stack.length === 0 && !lane.pile && stock.length) {
+      lane.stack.push(stock.pop());
+      updateStockBadge();
     }
   }
 
-  function renderCategories() {
-    const el = $('categories');
-    el.innerHTML = CATEGORIES.map((cat) => `
-      <div class="cat" id="cat-${cat.id}" data-cat="${cat.id}" style="background:${cat.color}22;">
-        <div class="label">${cat.label}</div>
-        <div class="progress"><span id="prog-${cat.id}">0</span>/${cat.words.length}</div>
-        <div class="bar"><i id="bar-${cat.id}" style="background:${cat.color};"></i></div>
-      </div>
-    `).join('');
-  }
-
   function updateHud() {
-    $('missCount').textContent = misses;
-    $('remainCount').textContent = TOTAL - placedTotal;
+    $('moveCount').textContent = moves;
+    updateStockBadge();
+    $('hintBadge').textContent = hints;
+    $('undoBadge').textContent = undos;
+    $('shuffleBadge').textContent = shuffles;
+    $('hintBtn').style.opacity = hints > 0 ? 1 : .4;
+    $('undoBtn').style.opacity = undos > 0 ? 1 : .4;
+    $('shuffleBtn').style.opacity = shuffles > 0 ? 1 : .4;
   }
+  function updateStockBadge() { $('stockBadge').textContent = stock.length; }
 
   function showToast(msg) {
     const t = $('toast');
@@ -141,49 +183,71 @@
     showToast._t = setTimeout(() => t.classList.remove('show'), 700);
   }
 
-  function spawnConfetti() {
-    const colors = CATEGORIES.map((c) => c.color);
-    for (let i = 0; i < 60; i++) {
-      const el = document.createElement('div');
-      el.className = 'confetti';
-      el.style.left = Math.random() * 100 + 'vw';
-      el.style.background = colors[Math.floor(Math.random() * colors.length)];
-      el.style.animation = `fall ${1.2 + Math.random() * 1.2}s linear forwards`;
-      el.style.animationDelay = (Math.random() * 0.4) + 's';
-      document.body.appendChild(el);
-      setTimeout(() => el.remove(), 3000);
-    }
-  }
-  const styleTag = document.createElement('style');
-  styleTag.textContent = `@keyframes fall { to { transform: translateY(110vh) rotate(360deg); opacity:.3; } }`;
-  document.head.appendChild(styleTag);
-
+  // ---- 描画 ----
   function renderBoard() {
     const board = $('board');
-    board.innerHTML = cols.map((_, c) => `<div class="col" id="col-${c}"></div>`).join('');
-    for (let c = 0; c < COLS; c++) renderColumn(c);
-  }
+    board.innerHTML = '';
+    lanes.forEach((lane, li) => {
+      const laneEl = document.createElement('div');
+      laneEl.className = 'lane';
+      laneEl.id = 'lane-' + li;
 
-  function renderColumn(c) {
-    const colEl = $('col-' + c);
-    colEl.innerHTML = '';
-    colEl.style.height = (cols[c].length ? (cols[c].length - 1) * 10 + 'px' : '0px');
-    const paddingHeight = Math.max(cols[c].length - 1, 0) * 10;
-    colEl.style.paddingTop = paddingHeight + 'px';
-    cols[c].forEach((card, idx) => {
-      const isTop = idx === cols[c].length - 1;
-      const div = document.createElement('div');
-      div.className = 'card' + (isTop ? ' active' : ' stacked');
-      div.style.top = (idx * 10) + 'px';
-      div.textContent = isTop ? card.word : '';
-      if (isTop) wireDrag(div, c);
-      colEl.appendChild(div);
+      const tab = document.createElement('div');
+      tab.className = 'tab';
+      if (lane.pile) { tab.textContent = lane.pile.label; } else { tab.hidden = true; }
+      laneEl.appendChild(tab);
+
+      const stackEl = document.createElement('div');
+      stackEl.className = 'stack';
+      stackEl.id = 'stack-' + li;
+      laneEl.appendChild(stackEl);
+
+      board.appendChild(laneEl);
+      renderLaneStack(li);
     });
   }
 
-  function wireDrag(el, colIdx) {
-    let startX, startY, origLeft, origTop, dragging = false;
-    const parentRect = () => el.parentElement.getBoundingClientRect();
+  function renderLaneStack(li) {
+    const lane = lanes[li];
+    const stackEl = $('stack-' + li);
+    stackEl.innerHTML = '';
+
+    if (lane.pile) {
+      const card = document.createElement('div');
+      card.className = 'card pile active';
+      card.innerHTML = `<div class="crown">👑</div><div>${escapeHtml(lane.pile.faceWord)}</div><div class="frac">${lane.pile.collected}/${lane.pile.target}</div>`;
+      wireDrag(card, li);
+      stackEl.appendChild(card);
+      return;
+    }
+
+    if (!lane.stack.length) {
+      const empty = document.createElement('div');
+      empty.className = 'card';
+      empty.style.opacity = '0.25';
+      empty.innerHTML = `<div class="crown">👑</div>`;
+      stackEl.appendChild(empty);
+      return;
+    }
+
+    // peek表示: 手前(index末尾)以外を上に薄く積む。奥から順に描画して最後に前面カードを置く。
+    for (let idx = lane.stack.length - 1; idx >= 1; idx--) {
+      const peek = document.createElement('div');
+      peek.className = 'peek';
+      peek.textContent = lane.stack[idx].word;
+      stackEl.appendChild(peek);
+    }
+    const front = lane.stack[0];
+    const card = document.createElement('div');
+    card.className = 'card active';
+    card.textContent = front.word;
+    wireDrag(card, li);
+    stackEl.appendChild(card);
+  }
+
+  // ---- ドラッグ&ドロップ ----
+  function wireDrag(el, laneIdx) {
+    let startX, startY, origLeft, origTop, dragging = false, placeholder = null;
 
     function onDown(e) {
       const pt = e.touches ? e.touches[0] : e;
@@ -191,8 +255,11 @@
       const rect = el.getBoundingClientRect();
       origLeft = rect.left; origTop = rect.top;
       dragging = true;
+      placeholder = document.createElement('div');
+      placeholder.style.width = rect.width + 'px';
+      placeholder.style.height = rect.height + 'px';
+      el.parentElement.insertBefore(placeholder, el);
       el.classList.add('dragging');
-      el.style.position = 'fixed';
       el.style.width = rect.width + 'px';
       el.style.height = rect.height + 'px';
       el.style.left = rect.left + 'px';
@@ -209,8 +276,12 @@
       const dx = pt.clientX - startX, dy = pt.clientY - startY;
       el.style.left = (origLeft + dx) + 'px';
       el.style.top = (origTop + dy) + 'px';
-      const hovered = catUnderPoint(pt.clientX, pt.clientY);
-      document.querySelectorAll('.cat').forEach((c) => c.classList.toggle('hot', c === hovered));
+      const hovered = laneUnderPoint(pt.clientX, pt.clientY);
+      document.querySelectorAll('.card.active').forEach((c) => c.classList.remove('hot-target'));
+      if (hovered !== null && hovered !== laneIdx) {
+        const targetCard = $('stack-' + hovered).querySelector('.card.active');
+        if (targetCard) targetCard.classList.add('hot-target');
+      }
     }
     function onUp(e) {
       if (!dragging) return;
@@ -219,50 +290,137 @@
       document.removeEventListener('mouseup', onUp);
       document.removeEventListener('touchmove', onMove);
       document.removeEventListener('touchend', onUp);
+      document.querySelectorAll('.card.active').forEach((c) => c.classList.remove('hot-target'));
       const pt = e.changedTouches ? e.changedTouches[0] : e;
-      const target = catUnderPoint(pt.clientX, pt.clientY);
-      document.querySelectorAll('.cat').forEach((c) => c.classList.remove('hot'));
-      handleDrop(colIdx, target ? target.dataset.cat : null);
+      const targetLane = laneUnderPoint(pt.clientX, pt.clientY);
+      placeholder && placeholder.remove();
+      el.classList.remove('dragging');
+      el.style.position = ''; el.style.width = ''; el.style.height = ''; el.style.left = ''; el.style.top = '';
+      if (targetLane !== null && targetLane !== laneIdx) {
+        attemptMatch(laneIdx, targetLane);
+      } else {
+        renderLaneStack(laneIdx);
+      }
     }
     el.addEventListener('mousedown', onDown);
     el.addEventListener('touchstart', onDown, { passive: true });
   }
 
-  function catUnderPoint(x, y) {
-    const els = document.querySelectorAll('.cat');
-    for (const el of els) {
+  function laneUnderPoint(x, y) {
+    for (let i = 0; i < LANES; i++) {
+      const el = $('lane-' + i);
       const r = el.getBoundingClientRect();
-      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return el;
+      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return i;
     }
     return null;
   }
 
-  function handleDrop(colIdx, targetCatId) {
-    const card = cols[colIdx][cols[colIdx].length - 1];
-    if (!targetCatId) { renderColumn(colIdx); return; }
-    if (card.catId === targetCatId) {
-      cols[colIdx].pop();
-      progress[targetCatId]++;
-      placedTotal++;
-      const cat = CATEGORIES.find((c) => c.id === targetCatId);
-      $('prog-' + targetCatId).textContent = progress[targetCatId];
-      $('bar-' + targetCatId).style.width = (progress[targetCatId] / cat.words.length * 100) + '%';
-      play(true);
-      renderColumn(colIdx);
-      updateHud();
-      if (placedTotal >= TOTAL) {
-        setTimeout(showClear, 300);
-      }
-    } else {
-      misses++;
-      play(false);
-      showToast('ちがうよ！');
-      renderColumn(colIdx);
-      updateHud();
-    }
+  function frontCardOf(laneIdx) {
+    const lane = lanes[laneIdx];
+    if (lane.pile) return { word: lane.pile.faceWord, catIndex: lane.pile.catIndex };
+    if (lane.stack.length) return lane.stack[0];
+    return null;
   }
 
-  // ---- 軽量な効果音(WebAudio、外部音源なし) ----
+  function attemptMatch(fromLane, toLane) {
+    const cardFrom = frontCardOf(fromLane);
+    const cardTo = frontCardOf(toLane);
+    if (!cardFrom || !cardTo) { renderLaneStack(fromLane); return; }
+
+    moves++;
+
+    if (cardFrom.catIndex !== cardTo.catIndex) {
+      play(false);
+      showToast('ちがう仲間みたい…');
+      updateHud();
+      renderLaneStack(fromLane);
+      const toEl = $('stack-' + toLane).querySelector('.card');
+      if (toEl) { toEl.classList.add('wrong'); setTimeout(() => toEl.classList.remove('wrong'), 320); }
+      return;
+    }
+
+    pushHistory();
+
+    // 一致: fromLaneの手前カードを消費してtoLaneの山に合体させる。
+    const cat = CATEGORY_DEFS[cardTo.catIndex];
+    const toLaneObj = lanes[toLane];
+    if (!toLaneObj.pile) {
+      // toLane側もまだ「未発見」だった場合、toLaneの手前カードも一緒に消費してここで山を新規作成する。
+      toLaneObj.stack.shift();
+      toLaneObj.pile = { catIndex: cat === undefined ? cardTo.catIndex : cardTo.catIndex, collected: 2, target: cat.words.length, label: cat.label, faceWord: cardFrom.word };
+    } else {
+      toLaneObj.pile.collected++;
+      toLaneObj.pile.faceWord = cardFrom.word;
+    }
+    lanes[fromLane].stack.shift();
+    placedCards = countPlaced();
+
+    play(true);
+    refillLaneIfEmpty(fromLane);
+
+    if (toLaneObj.pile.collected >= toLaneObj.pile.target) {
+      showToast(`「${toLaneObj.pile.label}」コンプリート！`);
+      setTimeout(() => { toLaneObj.pile = null; refillLaneIfEmpty(toLane); refillLaneIfEmpty(toLane); renderBoard(); }, 650);
+    }
+
+    updateHud();
+    renderBoard();
+
+    if (placedCards >= totalCards) setTimeout(showClear, 500);
+  }
+
+  function countPlaced() {
+    let n = 0;
+    for (const lane of lanes) if (lane.pile) n += lane.pile.collected;
+    return n;
+  }
+
+  function escapeHtml(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+
+  // ---- ツール: ヒント/取り消し/シャッフル ----
+  $('hintBtn').addEventListener('click', () => {
+    if (hints <= 0) return;
+    // 現在盤面にある手前カード同士で、実際に一致する組み合わせを1つ探して光らせる。
+    const fronts = lanes.map((l, i) => ({ i, card: frontCardOf(i) })).filter((x) => x.card);
+    for (let a = 0; a < fronts.length; a++) {
+      for (let b = 0; b < fronts.length; b++) {
+        if (a === b) continue;
+        if (fronts[a].card.catIndex === fronts[b].card.catIndex) {
+          hints--; updateHud();
+          [fronts[a].i, fronts[b].i].forEach((li) => {
+            const c = $('stack-' + li).querySelector('.card');
+            if (c) { c.style.outline = '3px solid #ffe08a'; setTimeout(() => { c.style.outline = ''; }, 1200); }
+          });
+          return;
+        }
+      }
+    }
+    showToast('今は一致するペアが盤面に出てないみたい');
+  });
+
+  $('undoBtn').addEventListener('click', () => {
+    if (undos <= 0 || !history.length) return;
+    undos--;
+    const snap = history.pop();
+    lanes = snap.lanes; stock = snap.stock; moves = snap.moves; placedCards = snap.placedCards;
+    updateHud();
+    renderBoard();
+  });
+
+  $('shuffleBtn').addEventListener('click', () => {
+    if (shuffles <= 0) return;
+    shuffles--;
+    // 未発見レーンの手前カードだけを集めてシャッフルし直す(山は崩さない)。
+    const movable = [];
+    lanes.forEach((lane, i) => { if (!lane.pile && lane.stack.length) movable.push({ i, card: lane.stack[0] }); });
+    const cards = shuffle(movable.map((m) => m.card));
+    movable.forEach((m, idx) => { lanes[m.i].stack[0] = cards[idx]; });
+    updateHud();
+    renderBoard();
+    showToast('シャッフルした！');
+  });
+
+  // ---- 軽量な効果音 ----
   let actx;
   function tone(freq, dur, opts = {}) {
     try {
@@ -285,9 +443,26 @@
     else { tone(180, 0.18, { type: 'sine', slideTo: 120, vol: 0.14 }); }
   }
 
+  function spawnConfetti() {
+    const colors = ['#f2c14e','#2fae5e','#4a8fd6','#e0453f'];
+    for (let i = 0; i < 60; i++) {
+      const el = document.createElement('div');
+      el.className = 'confetti';
+      el.style.left = Math.random() * 100 + 'vw';
+      el.style.background = colors[Math.floor(Math.random() * colors.length)];
+      el.style.animation = `fall ${1.2 + Math.random() * 1.2}s linear forwards`;
+      el.style.animationDelay = (Math.random() * 0.4) + 's';
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 3000);
+    }
+  }
+  const styleTag = document.createElement('style');
+  styleTag.textContent = `@keyframes fall { to { transform: translateY(110vh) rotate(360deg); opacity:.3; } }`;
+  document.head.appendChild(styleTag);
+
   function showClear() {
     $('gameScreen').hidden = true;
-    $('clearStats').textContent = `ミス ${misses}回で、ぜんぶのなかまを集められました！`;
+    $('clearStats').textContent = `手数 ${moves}回で、ぜんぶの仲間を見つけられました！`;
     $('clearScreen').hidden = false;
     spawnConfetti();
     tone(660, 0.15, { type: 'triangle' });
@@ -296,15 +471,11 @@
   }
 
   function startGame() {
-    misses = 0; placedTotal = 0;
-    progress = {}; CATEGORIES.forEach((c) => progress[c.id] = 0);
-    dealCols();
+    setupGame();
     $('titleScreen').hidden = true;
     $('clearScreen').hidden = true;
     $('gameScreen').hidden = false;
-    renderCategories();
     renderBoard();
-    updateHud();
   }
 
   $('startBtn').addEventListener('click', startGame);
