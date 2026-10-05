@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>なかまあつめソリティア</title>
+<style>
+  :root { color-scheme: light; }
+  html,body { margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:#eef2f6; touch-action:none; -webkit-user-select:none; user-select:none; font-family:-apple-system,system-ui,"Hiragino Maru Gothic ProN",sans-serif; }
+  #app { position:fixed; inset:0; display:flex; flex-direction:column; }
+
+  .screen { position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; background:#eef2f6; z-index:10; padding:20px; box-sizing:border-box; text-align:center; }
+  .screen[hidden] { display:none; }
+  .screen h1 { font-size:1.5rem; margin:0; color:#2d3b4e; }
+  .screen p { margin:0; color:#5a6b7d; font-size:.92rem; line-height:1.7; max-width:320px; }
+  .bigbtn { border:0; padding:14px 32px; border-radius:999px; background:#4a7bd4; color:#fff; font-weight:800; font-size:1.05rem; box-shadow:0 6px 16px rgba(74,123,212,.35); }
+  .bigbtn:active { transform:scale(.97); }
+  .ghostbtn { border:1px solid #c7d2de; background:#fff; color:#4a5a6e; padding:10px 24px; border-radius:999px; font-weight:700; font-size:.9rem; }
+
+  #hud { flex:0 0 auto; display:flex; justify-content:space-between; align-items:center; padding:10px 14px; padding-top:calc(10px + env(safe-area-inset-top,0px)); font-size:.8rem; font-weight:800; color:#4a5a6e; }
+  #hud .stat { background:#fff; border-radius:999px; padding:6px 14px; box-shadow:0 2px 6px rgba(0,0,0,.06); }
+
+  #categories { flex:0 0 auto; display:grid; grid-template-columns:repeat(4,1fr); gap:8px; padding:4px 10px 10px; }
+  .cat { background:#fff; border-radius:14px; padding:8px 6px; text-align:center; box-shadow:0 2px 8px rgba(0,0,0,.06); border:2px solid transparent; transition:border-color .15s, transform .15s; position:relative; }
+  .cat.hot { border-color:#4a7bd4; transform:scale(1.04); }
+  .cat .label { font-size:.78rem; font-weight:800; color:#2d3b4e; }
+  .cat .progress { font-size:.68rem; color:#8a97a6; margin-top:2px; }
+  .cat .bar { height:4px; border-radius:2px; background:#e3e8ee; margin-top:5px; overflow:hidden; }
+  .cat .bar i { display:block; height:100%; background:#4a7bd4; width:0%; transition:width .25s; }
+
+  #board { flex:1; display:flex; justify-content:center; align-items:flex-start; gap:10px; padding:14px 10px; overflow:hidden; }
+  .col { display:flex; flex-direction:column; align-items:center; position:relative; width:15%; max-width:78px; }
+  .card {
+    width:100%; aspect-ratio:3/4; border-radius:10px; background:#fff; box-shadow:0 3px 10px rgba(0,0,0,.12);
+    display:flex; align-items:center; justify-content:center; text-align:center; font-weight:800; color:#2d3b4e;
+    font-size:.78rem; line-height:1.3; padding:4px; box-sizing:border-box; position:absolute; left:0; right:0;
+  }
+  .card.stacked { box-shadow:0 1px 3px rgba(0,0,0,.08); color:#c3cad2; background:#f4f6f8; }
+  .card.active { cursor:grab; z-index:5; }
+  .card.dragging { z-index:50; box-shadow:0 10px 26px rgba(0,0,0,.25); cursor:grabbing; }
+
+  #toast { position:fixed; left:50%; top:14%; transform:translate(-50%,-50%) scale(.9); background:#2d3b4e; color:#fff; padding:10px 20px; border-radius:999px; font-size:.85rem; font-weight:700; z-index:40; opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; }
+  #toast.show { opacity:1; transform:translate(-50%,-50%) scale(1); }
+
+  .confetti { position:fixed; top:-10px; width:8px; height:8px; border-radius:2px; z-index:60; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div id="titleScreen" class="screen">
+    <h1>なかまあつめソリティア</h1>
+    <p>山札のカードをめくって、合うカテゴリへドラッグ。各列は一番上のカードだけ動かせます。全部仲間分けできたらクリア！</p>
+    <button class="bigbtn" id="startBtn">はじめる</button>
+  </div>
+
+  <div id="clearScreen" class="screen" hidden>
+    <h1>🎉 クリア！</h1>
+    <p id="clearStats"></p>
+    <button class="bigbtn" id="retryBtn">もう一度あそぶ</button>
+  </div>
+
+  <div id="gameScreen" hidden style="display:flex; flex-direction:column; height:100%;">
+    <div id="hud">
+      <span class="stat">ミス <span id="missCount">0</span></span>
+      <span class="stat">のこり <span id="remainCount">24</span></span>
+    </div>
+    <div id="categories"></div>
+    <div id="board"></div>
+  </div>
+
+</div>
+<div id="toast"></div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+
+  const CATEGORIES = [
+    { id: 'animal', label: 'どうぶつ', color: '#e07a5f', words: ['イヌ','ネコ','ゾウ','キリン','パンダ','ウサギ'] },
+    { id: 'fruit',  label: 'くだもの', color: '#81b29a', words: ['リンゴ','バナナ','イチゴ','ブドウ','モモ','メロン'] },
+    { id: 'sport',  label: 'スポーツ', color: '#f2cc8f', words: ['サッカー','やきゅう','すいえい','テニス','バレー','じゅうどう'] },
+    { id: 'weather',label: 'てんき',   words: ['はれ','あめ','くもり','ゆき','かみなり','きり'], color: '#a0c4e2' },
+  ];
+  const COLS = 6, ROWS = 4; // 6列 x 4段 = 24枚
+
+  let cols = []; // each: [{word, catId}, ...] (index 0 = bottom, last = top/active)
+  let progress = {}; // catId -> count placed
+  let misses = 0;
+  let placedTotal = 0;
+  const TOTAL = COLS * ROWS;
+
+  function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  function buildDeck() {
+    const deck = [];
+    for (const cat of CATEGORIES) {
+      for (const w of cat.words) deck.push({ word: w, catId: cat.id });
+    }
+    return shuffle(deck);
+  }
+
+  function dealCols() {
+    const deck = buildDeck();
+    cols = Array.from({ length: COLS }, () => []);
+    let i = 0;
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        cols[c].push(deck[i++]);
+      }
+    }
+  }
+
+  function renderCategories() {
+    const el = $('categories');
+    el.innerHTML = CATEGORIES.map((cat) => `
+      <div class="cat" id="cat-${cat.id}" data-cat="${cat.id}" style="background:${cat.color}22;">
+        <div class="label">${cat.label}</div>
+        <div class="progress"><span id="prog-${cat.id}">0</span>/${cat.words.length}</div>
+        <div class="bar"><i id="bar-${cat.id}" style="background:${cat.color};"></i></div>
+      </div>
+    `).join('');
+  }
+
+  function updateHud() {
+    $('missCount').textContent = misses;
+    $('remainCount').textContent = TOTAL - placedTotal;
+  }
+
+  function showToast(msg) {
+    const t = $('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(() => t.classList.remove('show'), 700);
+  }
+
+  function spawnConfetti() {
+    const colors = CATEGORIES.map((c) => c.color);
+    for (let i = 0; i < 60; i++) {
+      const el = document.createElement('div');
+      el.className = 'confetti';
+      el.style.left = Math.random() * 100 + 'vw';
+      el.style.background = colors[Math.floor(Math.random() * colors.length)];
+      el.style.animation = `fall ${1.2 + Math.random() * 1.2}s linear forwards`;
+      el.style.animationDelay = (Math.random() * 0.4) + 's';
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 3000);
+    }
+  }
+  const styleTag = document.createElement('style');
+  styleTag.textContent = `@keyframes fall { to { transform: translateY(110vh) rotate(360deg); opacity:.3; } }`;
+  document.head.appendChild(styleTag);
+
+  function renderBoard() {
+    const board = $('board');
+    board.innerHTML = cols.map((_, c) => `<div class="col" id="col-${c}"></div>`).join('');
+    for (let c = 0; c < COLS; c++) renderColumn(c);
+  }
+
+  function renderColumn(c) {
+    const colEl = $('col-' + c);
+    colEl.innerHTML = '';
+    colEl.style.height = (cols[c].length ? (cols[c].length - 1) * 10 + 'px' : '0px');
+    const paddingHeight = Math.max(cols[c].length - 1, 0) * 10;
+    colEl.style.paddingTop = paddingHeight + 'px';
+    cols[c].forEach((card, idx) => {
+      const isTop = idx === cols[c].length - 1;
+      const div = document.createElement('div');
+      div.className = 'card' + (isTop ? ' active' : ' stacked');
+      div.style.top = (idx * 10) + 'px';
+      div.textContent = isTop ? card.word : '';
+      if (isTop) wireDrag(div, c);
+      colEl.appendChild(div);
+    });
+  }
+
+  function wireDrag(el, colIdx) {
+    let startX, startY, origLeft, origTop, dragging = false;
+    const parentRect = () => el.parentElement.getBoundingClientRect();
+
+    function onDown(e) {
+      const pt = e.touches ? e.touches[0] : e;
+      startX = pt.clientX; startY = pt.clientY;
+      const rect = el.getBoundingClientRect();
+      origLeft = rect.left; origTop = rect.top;
+      dragging = true;
+      el.classList.add('dragging');
+      el.style.position = 'fixed';
+      el.style.width = rect.width + 'px';
+      el.style.height = rect.height + 'px';
+      el.style.left = rect.left + 'px';
+      el.style.top = rect.top + 'px';
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+      document.addEventListener('touchmove', onMove, { passive: false });
+      document.addEventListener('touchend', onUp);
+    }
+    function onMove(e) {
+      if (!dragging) return;
+      if (e.cancelable) e.preventDefault();
+      const pt = e.touches ? e.touches[0] : e;
+      const dx = pt.clientX - startX, dy = pt.clientY - startY;
+      el.style.left = (origLeft + dx) + 'px';
+      el.style.top = (origTop + dy) + 'px';
+      const hovered = catUnderPoint(pt.clientX, pt.clientY);
+      document.querySelectorAll('.cat').forEach((c) => c.classList.toggle('hot', c === hovered));
+    }
+    function onUp(e) {
+      if (!dragging) return;
+      dragging = false;
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.removeEventListener('touchmove', onMove);
+      document.removeEventListener('touchend', onUp);
+      const pt = e.changedTouches ? e.changedTouches[0] : e;
+      const target = catUnderPoint(pt.clientX, pt.clientY);
+      document.querySelectorAll('.cat').forEach((c) => c.classList.remove('hot'));
+      handleDrop(colIdx, target ? target.dataset.cat : null);
+    }
+    el.addEventListener('mousedown', onDown);
+    el.addEventListener('touchstart', onDown, { passive: true });
+  }
+
+  function catUnderPoint(x, y) {
+    const els = document.querySelectorAll('.cat');
+    for (const el of els) {
+      const r = el.getBoundingClientRect();
+      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return el;
+    }
+    return null;
+  }
+
+  function handleDrop(colIdx, targetCatId) {
+    const card = cols[colIdx][cols[colIdx].length - 1];
+    if (!targetCatId) { renderColumn(colIdx); return; }
+    if (card.catId === targetCatId) {
+      cols[colIdx].pop();
+      progress[targetCatId]++;
+      placedTotal++;
+      const cat = CATEGORIES.find((c) => c.id === targetCatId);
+      $('prog-' + targetCatId).textContent = progress[targetCatId];
+      $('bar-' + targetCatId).style.width = (progress[targetCatId] / cat.words.length * 100) + '%';
+      play(true);
+      renderColumn(colIdx);
+      updateHud();
+      if (placedTotal >= TOTAL) {
+        setTimeout(showClear, 300);
+      }
+    } else {
+      misses++;
+      play(false);
+      showToast('ちがうよ！');
+      renderColumn(colIdx);
+      updateHud();
+    }
+  }
+
+  // ---- 軽量な効果音(WebAudio、外部音源なし) ----
+  let actx;
+  function tone(freq, dur, opts = {}) {
+    try {
+      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+      const t0 = actx.currentTime + (opts.delay || 0);
+      const osc = actx.createOscillator();
+      const gain = actx.createGain();
+      osc.type = opts.type || 'sine';
+      osc.frequency.setValueAtTime(freq, t0);
+      if (opts.slideTo) osc.frequency.linearRampToValueAtTime(opts.slideTo, t0 + dur);
+      gain.gain.setValueAtTime(0, t0);
+      gain.gain.linearRampToValueAtTime(opts.vol || 0.18, t0 + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+      osc.connect(gain); gain.connect(actx.destination);
+      osc.start(t0); osc.stop(t0 + dur + 0.02);
+    } catch (e) {}
+  }
+  function play(correct) {
+    if (correct) { tone(520, 0.12, { type: 'triangle' }); tone(760, 0.16, { type: 'triangle', delay: 0.07, vol: 0.14 }); }
+    else { tone(180, 0.18, { type: 'sine', slideTo: 120, vol: 0.14 }); }
+  }
+
+  function showClear() {
+    $('gameScreen').hidden = true;
+    $('clearStats').textContent = `ミス ${misses}回で、ぜんぶのなかまを集められました！`;
+    $('clearScreen').hidden = false;
+    spawnConfetti();
+    tone(660, 0.15, { type: 'triangle' });
+    tone(880, 0.2, { type: 'triangle', delay: 0.12 });
+    tone(1100, 0.25, { type: 'triangle', delay: 0.24 });
+  }
+
+  function startGame() {
+    misses = 0; placedTotal = 0;
+    progress = {}; CATEGORIES.forEach((c) => progress[c.id] = 0);
+    dealCols();
+    $('titleScreen').hidden = true;
+    $('clearScreen').hidden = true;
+    $('gameScreen').hidden = false;
+    renderCategories();
+    renderBoard();
+    updateHud();
+  }
+
+  $('startBtn').addEventListener('click', startGame);
+  $('retryBtn').addEventListener('click', startGame);
+})();
+</script>
+</body>
+</html>
