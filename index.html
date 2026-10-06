@@ -31,7 +31,7 @@
   #coinPlus { position:absolute; left:22px; top:22px; width:16px; height:16px; border-radius:50%; background:#2fae5e; color:#fff; font-size:.7rem; font-weight:900; display:flex; align-items:center; justify-content:center; border:2px solid #17341f; }
   #coinCount { color:#fff; font-weight:900; font-size:1rem; }
   #levelLabel { color:#fff; font-weight:900; font-size:1.35rem; }
-  #menuIcon { color:#fff; font-size:1.4rem; line-height:1; }
+  #menuIcon { color:#fff; font-size:1.4rem; line-height:1; cursor:pointer; padding:6px; margin:-6px; }
 
   #subbar { flex:0 0 auto; display:flex; align-items:flex-start; justify-content:space-between; padding:10px 14px 4px; }
   #moveBanner {
@@ -45,7 +45,7 @@
   #stockWrap { position:relative; width:88px; height:118px; cursor:pointer; }
   .stockCard { position:absolute; inset:0; border-radius:14px; background:
     repeating-linear-gradient(45deg,#4a8fd6 0 8px,#5a9fe0 8px 16px); border:2px solid #fff; box-shadow:0 3px 8px rgba(0,0,0,.25); }
-  #stockBadge { position:absolute; top:-6px; right:-6px; background:#2d2d2d; color:#fff; font-size:.7rem; font-weight:800; border-radius:999px; padding:3px 7px; border:2px solid #fff; }
+  #stockBadge { position:absolute; top:-6px; right:-6px; background:#2d2d2d; color:#fff; font-size:.7rem; font-weight:800; border-radius:999px; padding:3px 7px; border:2px solid #fff; z-index:20; }
 
   /* ---- ウェイスト(山札からめくった置き場): 横に重ねて開く。手前(最新)が左、
      奥にめくった順にずれて、裏向きのスリバーが覗く。何枚か連続でめくるほど
@@ -132,7 +132,7 @@
       <div style="flex:1"></div>
       <div id="topPiles">
         <div id="wasteWrap"></div>
-        <div id="stockWrap"><div class="stockCard"></div><div id="stockBadge">0</div></div>
+        <div id="stockWrap"><div id="stockBadge">0</div></div>
       </div>
     </div>
     <div id="board">
@@ -506,6 +506,48 @@
       ['のり',null,'紙などを貼り合わせるための道具'],
       ['じょうぎ',null,'まっすぐな線を引くための道具'],
     ]},
+    { label:'にほんのれきしじんぶつ', words:[
+      ['織田信長',null,'「天下布武」を掲げ、戦国時代に勢力を広げた武将'],
+      ['豊臣秀吉',null,'農民から天下統一を成し遂げた戦国武将'],
+      ['徳川家康',null,'江戸幕府を開き、約260年続く体制の土台を築いた武将'],
+      ['聖徳太子',null,'十七条の憲法を定めたとされる、飛鳥時代の皇族'],
+      ['坂本龍馬',null,'薩長同盟の仲介などで活躍した、幕末の志士'],
+    ]},
+    { label:'せかいのれきしじんぶつ', words:[
+      ['ナポレオン',null,'フランス皇帝となり、ヨーロッパの広い範囲を支配した人物'],
+      ['リンカーン',null,'奴隷解放を進めた、アメリカの大統領'],
+      ['アインシュタイン',null,'相対性理論を打ち立てた物理学者'],
+      ['エジソン',null,'電球や蓄音機など、多くの発明をした発明家'],
+      ['ニュートン',null,'万有引力の法則を発見した科学者'],
+    ]},
+    { label:'りかのようご', words:[
+      ['光合成',null,'植物が光を使って養分を作り出すはたらき'],
+      ['細胞分裂',null,'1つの細胞が2つに分かれて増えること'],
+      ['慣性の法則',null,'物体は外から力が加わらない限り、今の運動を続けるという法則'],
+      ['元素記号',null,'元素を1〜2文字のアルファベットで表した記号'],
+      ['光合成の逆',null,'酸素を取り入れ二酸化炭素を出す、生物の呼吸のはたらき'],
+    ]},
+    { label:'しゃかいのようご', words:[
+      ['三権分立',null,'国の権力を立法・行政・司法の3つに分ける仕組み'],
+      ['需要と供給',null,'買いたい量と売りたい量の関係で価格が決まる考え方'],
+      ['地方自治',null,'地域のことをその地域の住民自身で決めて治める仕組み'],
+      ['国際連合',null,'世界の平和と安全を守るために作られた国際機関'],
+      ['三審制',null,'裁判を慎重に行うため、3回まで審理を受けられる制度'],
+    ]},
+    { label:'すうがくのようご', words:[
+      ['因数分解',null,'式をいくつかの因数のかけ算の形に直すこと'],
+      ['二次関数',null,'グラフが放物線になる、x²を含む関数'],
+      ['確率',null,'ある出来事が起こりやすさを数で表したもの'],
+      ['相似',null,'形が同じで大きさだけが違う図形の関係'],
+      ['最大公約数',null,'複数の数に共通する約数のうち、一番大きいもの'],
+    ]},
+    { label:'ぶんがくさくひん', words:[
+      ['吾輩は猫である',null,'夏目漱石が書いた、猫の視点で人間社会を描いた小説'],
+      ['走れメロス',null,'太宰治が書いた、友情と約束をテーマにした短編小説'],
+      ['羅生門',null,'芥川龍之介が書いた、人間のエゴを描いた短編小説'],
+      ['雪国',null,'川端康成が書いた、新潟を舞台にした小説'],
+      ['坊っちゃん',null,'夏目漱石が書いた、江戸っ子気質の教師を主人公にした小説'],
+    ]},
   ];
 
   const TOP_LANES = 4, BOTTOM_LANES = 4, LANES = TOP_LANES + BOTTOM_LANES;
@@ -577,7 +619,31 @@
     stock = deck.slice(dealCount);
 
     const bottom = Array.from({ length: BOTTOM_LANES }, () => ({ isTableau: true, stack: [], pile: null }));
-    tableauDeal.forEach((card, i) => { bottom[i % BOTTOM_LANES].stack.push(card); });
+
+    // 最初から「同じ仲間のカードが×2で重なってる」レーンがいくつかあると
+    // 始めやすいので、2レーンぶんだけ手前2枚に同テーマ・同じ見た目(絵文字/
+    // 文字)の単語カードを強制的に並べておく。見た目はタブローの束と同じ
+    // peek表示になるので、重なってても下のカードがちゃんとズレて見える。
+    const remaining = [...tableauDeal];
+    const presetLaneCount = Math.min(2, BOTTOM_LANES);
+    for (let laneIdx = 0; laneIdx < presetLaneCount; laneIdx++) {
+      let pair = null;
+      for (let a = 0; a < remaining.length && !pair; a++) {
+        if (remaining[a].type !== 'word') continue;
+        for (let b = a + 1; b < remaining.length; b++) {
+          if (remaining[b].type === 'word' && remaining[b].catIndex === remaining[a].catIndex && remaining[b].cardType === remaining[a].cardType) {
+            pair = [a, b];
+            break;
+          }
+        }
+      }
+      if (!pair) continue;
+      const [ai, bi] = pair;
+      const cardB = remaining.splice(bi, 1)[0]; // biの方が大きいので先に抜く
+      const cardA = remaining.splice(ai, 1)[0];
+      bottom[laneIdx].stack.push(cardA, cardB);
+    }
+    remaining.forEach((card, i) => { bottom[i % BOTTOM_LANES].stack.push(card); });
     lanes.push(...bottom);
 
     updateHud();
@@ -597,6 +663,7 @@
       stock = shuffle(waste.splice(0, waste.length));
       updateStockBadge();
       renderWaste();
+      sfxTool();
       showToast('山札をシャッフルして再開！');
       return;
     }
@@ -604,6 +671,7 @@
     waste.push(stock.pop());
     updateStockBadge();
     renderWaste();
+    sfxFlip();
   }
 
   function updateHud() {
@@ -617,7 +685,23 @@
     $('undoBtn').style.opacity = undos > 0 ? 1 : .4;
     $('shuffleBtn').style.opacity = shuffles > 0 ? 1 : .4;
   }
-  function updateStockBadge() { $('stockBadge').textContent = stock.length; }
+  // 山札も、ウェイストやタブローの束と同じく「下にもまだある」感じが見える
+  // ように、残り枚数ぶん(最大4枚)だけ斜めにずらして重ねて描く。
+  function updateStockBadge() {
+    $('stockBadge').textContent = stock.length;
+    const wrap = $('stockWrap');
+    wrap.querySelectorAll('.stockCard').forEach((el) => el.remove());
+    const depth = stock.length ? Math.min(4, stock.length) : 0;
+    for (let k = depth - 1; k >= 0; k--) {
+      const el = document.createElement('div');
+      el.className = 'stockCard';
+      el.style.top = (-k * 2) + 'px';
+      el.style.left = (k * 2) + 'px';
+      el.style.right = (-(k * 2)) + 'px';
+      el.style.zIndex = String(10 - k);
+      wrap.appendChild(el);
+    }
+  }
 
   function showToast(msg) {
     const t = $('toast');
@@ -717,6 +801,20 @@
     front.style.zIndex = '100';
     let meaningInfo = null;
     if (hasPile) {
+      // パイル自体も、集まった枚数ぶんだけ少しずつ重なって見えるように
+      // (山札/タブローの束と同じ「下に何か積まれてる」感じを出す)。
+      // 実際の個々のカードは数えるだけで保持していないので、厚みの演出用に
+      // 控えめな枚数だけゴースト層を右斜め奥へずらして重ねる。
+      const pileDepth = Math.min(3, Math.max(0, lane.pile.collected - 1));
+      for (let k = pileDepth; k >= 1; k--) {
+        const ghost = document.createElement('div');
+        ghost.className = 'card pile';
+        ghost.style.top = (frontTop - k * 2) + 'px';
+        ghost.style.left = (k * 3) + 'px';
+        ghost.style.right = (-(k * 3)) + 'px';
+        ghost.style.zIndex = String(99 - k);
+        wrap.appendChild(ghost);
+      }
       front.className = 'card pile active';
       front.innerHTML = `<div class="crown">👑</div><div>${escapeHtml(lane.pile.faceWord)}</div><div class="frac">${lane.pile.collected}/${lane.pile.target}</div>`;
       if (lane.pile.locked) front.innerHTML += `<div class="htag">🔒 完成ゾーンへ</div>`;
@@ -1006,6 +1104,7 @@
     if (target.pile && !target.pile.locked && target.pile.collected >= target.pile.target) {
       const label = target.pile.label;
       coins += 10;
+      sfxComplete();
       showToast(`「${label}」コンプリート！+10コイン`);
       updateHud();
       setTimeout(() => {
@@ -1070,6 +1169,7 @@
     showToast('今すぐ置ける組み合わせが盤面にないみたい');
   });
   function flashHint(idxs) {
+    sfxTool();
     idxs.forEach((li) => {
       const wrap = li === 'waste' ? $('wasteWrap') : $('stack-' + li);
       const c = wrap && wrap.querySelector('.card.active, .card.empty-slot');
@@ -1085,6 +1185,7 @@
     updateHud();
     renderBoard();
     renderWaste();
+    sfxTool();
   });
 
   $('shuffleBtn').addEventListener('click', () => {
@@ -1097,6 +1198,7 @@
     movable.forEach((i, idx) => { lanes[i].stack[0] = cards[idx]; });
     updateHud();
     renderBoard();
+    sfxTool();
     showToast('シャッフルした！');
   });
 
@@ -1122,6 +1224,15 @@
     if (correct) { tone(520, 0.12, { type: 'triangle' }); tone(760, 0.16, { type: 'triangle', delay: 0.07, vol: 0.14 }); }
     else { tone(180, 0.18, { type: 'sine', slideTo: 120, vol: 0.14 }); }
   }
+  function sfxFlip() { tone(500, 0.05, { type: 'sine', slideTo: 650, vol: 0.09 }); }
+  function sfxComplete() {
+    // 通常の移動成功音(play(true))とは別の、カテゴリー達成専用のもう少し
+    // 華やかなジングル。「ただの移動」と「1カテゴリー完成」を音でも区別する。
+    tone(660, 0.1, { type: 'triangle', vol: 0.15 });
+    tone(880, 0.12, { type: 'triangle', delay: 0.09, vol: 0.14 });
+    tone(1100, 0.2, { type: 'triangle', delay: 0.18, vol: 0.13 });
+  }
+  function sfxTool() { tone(440, 0.07, { type: 'sine', slideTo: 560, vol: 0.1 }); }
 
   function spawnConfetti() {
     const colors = ['#f2c14e','#2fae5e','#4a8fd6','#e0453f'];
@@ -1162,6 +1273,14 @@
   $('startBtn').addEventListener('click', startGame);
   $('retryBtn').addEventListener('click', startGame);
   $('stockWrap').addEventListener('click', tapStock);
+
+  // ☰メニュー: 途中でも最初からやり直せるように。
+  $('menuIcon').addEventListener('click', () => {
+    if (confirm('最初からやり直しますか？(今の進行は失われます)')) {
+      sfxTool();
+      startGame();
+    }
+  });
 })();
 </script>
 </body>
