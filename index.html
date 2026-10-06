@@ -619,31 +619,7 @@
     stock = deck.slice(dealCount);
 
     const bottom = Array.from({ length: BOTTOM_LANES }, () => ({ isTableau: true, stack: [], pile: null }));
-
-    // 最初から「同じ仲間のカードが×2で重なってる」レーンがいくつかあると
-    // 始めやすいので、2レーンぶんだけ手前2枚に同テーマ・同じ見た目(絵文字/
-    // 文字)の単語カードを強制的に並べておく。見た目はタブローの束と同じ
-    // peek表示になるので、重なってても下のカードがちゃんとズレて見える。
-    const remaining = [...tableauDeal];
-    const presetLaneCount = Math.min(2, BOTTOM_LANES);
-    for (let laneIdx = 0; laneIdx < presetLaneCount; laneIdx++) {
-      let pair = null;
-      for (let a = 0; a < remaining.length && !pair; a++) {
-        if (remaining[a].type !== 'word') continue;
-        for (let b = a + 1; b < remaining.length; b++) {
-          if (remaining[b].type === 'word' && remaining[b].catIndex === remaining[a].catIndex && remaining[b].cardType === remaining[a].cardType) {
-            pair = [a, b];
-            break;
-          }
-        }
-      }
-      if (!pair) continue;
-      const [ai, bi] = pair;
-      const cardB = remaining.splice(bi, 1)[0]; // biの方が大きいので先に抜く
-      const cardA = remaining.splice(ai, 1)[0];
-      bottom[laneIdx].stack.push(cardA, cardB);
-    }
-    remaining.forEach((card, i) => { bottom[i % BOTTOM_LANES].stack.push(card); });
+    tableauDeal.forEach((card, i) => { bottom[i % BOTTOM_LANES].stack.push(card); });
     lanes.push(...bottom);
 
     updateHud();
