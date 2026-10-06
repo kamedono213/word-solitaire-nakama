@@ -1027,7 +1027,8 @@
   $('hintBtn').addEventListener('click', () => {
     if (hints <= 0) return;
     const sources = [...Array(LANES).keys(), 'waste'];
-    // まず「空き枠にドラッグできるカテゴリーカード」を探し、無ければ「山に重ねられる単語カード」を探す。
+    // まず「空き枠にドラッグできるカテゴリーカード」を探し、次に「山に重ねられる
+    // 単語カード」、次に「タブロー上の同じ束に合体できる単語カード」を探す。
     for (const i of sources) {
       const c = frontCardOf(i);
       if (c && c.type === 'header') {
@@ -1040,6 +1041,30 @@
       if (c && c.type === 'word') {
         const pileIdx = lanes.findIndex((l) => l.pile && !l.pile.locked && l.pile.catIndex === c.catIndex);
         if (pileIdx !== -1) { flashHint([i, pileIdx]); hints--; updateHud(); return; }
+      }
+    }
+    for (const i of sources) {
+      const c = frontCardOf(i);
+      if (c && c.type === 'word') {
+        for (let t = 0; t < LANES; t++) {
+          if (t === i) continue;
+          const target = lanes[t];
+          const tc = frontCardOf(t);
+          if (!target.pile && target.isTableau && tc && tc.type === 'word'
+              && tc.catIndex === c.catIndex && tc.cardType === c.cardType) {
+            flashHint([i, t]); hints--; updateHud(); return;
+          }
+        }
+      }
+    }
+    // 下段で発見しただけでロックされてるパイルは、空いてる完成ゾーン(上段)へ
+    // 移すこと自体が進行になる(そこで初めて達成、かつ下に埋もれてたカードも
+    // 表に出てくる)。他に動かせる手が無い時は、これを最優先で教える。
+    for (let i = 0; i < LANES; i++) {
+      const lane = lanes[i];
+      if (lane.pile && lane.pile.locked) {
+        const emptyTop = lanes.findIndex((l, idx) => idx < TOP_LANES && !l.pile && l.stack.length === 0);
+        if (emptyTop !== -1) { flashHint([i, emptyTop]); hints--; updateHud(); return; }
       }
     }
     showToast('今すぐ置ける組み合わせが盤面にないみたい');
